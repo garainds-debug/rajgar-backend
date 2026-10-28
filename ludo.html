@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ludo – RAJGAR Ludo</title>
+<meta name="theme-color" content="#0d2818">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body class="game">
+  <header class="topbar">
+    <a class="hud-btn" href="./">‹ Games</a>
+    <div class="brand">👑 LUDO</div>
+    <div class="hud"><span class="chip" data-coins></span><button class="hud-btn" data-sound aria-label="Sound"></button><button id="btn-menu" class="hud-btn">☰</button></div>
+  </header>
+
+  <div class="names"><div class="pname off" data-color="green"></div><div class="pname off" data-color="yellow"></div></div>
+  <div id="board" class="board" aria-label="Ludo board">
+    <svg id="board-svg" viewBox="0 0 15 15" aria-hidden="true"></svg>
+    <div id="tokens" class="tokens"></div>
+  </div>
+  <div class="names"><div class="pname off" data-color="red"></div><div class="pname off" data-color="blue"></div></div>
+
+  <div class="controls">
+    <div class="turn">
+      <div id="turn-dot" class="turn-dot"></div>
+      <div><div id="turn-name" class="turn-name">Ludo</div><div id="status" class="status">Choose players to start</div></div>
+    </div>
+    <button id="lucky" class="power" hidden>🍀 Lucky 6 <span id="lucky-n"></span></button>
+    <button id="dice" class="die" aria-label="Roll dice" disabled></button>
+  </div>
+
+  <div id="setup" class="modal">
+    <div class="sheet">
+      <h1>🎲 LUDO</h1>
+      <div class="sub">Play the computer, or pass the phone between friends</div>
+      <button id="btn-continue" class="btn" hidden>Continue current game</button>
+      <button id="btn-resume" class="btn primary" hidden>Resume saved game</button>
+      <div class="label">Mode</div>
+      <div class="seg" id="seg-mode" style="--n:2">
+        <button data-m="classic">Classic</button><button data-m="quick">Quick ⚡</button>
+      </div>
+      <div class="sub" id="mode-note" style="margin:6px 0 0"></div>
+      <div class="label">Number of players</div>
+      <div class="seg" id="seg-count">
+        <button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button>
+      </div>
+      <div class="label">Who plays each colour</div>
+      <div id="seats"></div>
+      <button id="btn-start" class="btn primary">Start game</button>
+      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>Roll a <b>6</b> to bring a token out. A 6 also gives another roll; three 6s in a row cancels the turn.</li>
+          <li>Land on an opponent to send it back home — you get an extra roll.</li>
+          <li>Stars and coloured start squares are <b>safe</b>.</li>
+          <li>Reach the centre with an exact roll; a token reaching home gives an extra roll.</li>
+          <li><b>Classic:</b> all four tokens home to win. <b>Quick:</b> tokens start on the board and the first token home wins.</li>
+          <li>Win vs Computer to earn coins 🪙.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="result" class="modal" hidden>
+    <div class="sheet">
+      <h2 id="result-title">Game over</h2>
+      <div id="ranks"></div>
+      <div id="reward" class="reward"></div>
+      <button id="btn-again" class="btn primary">Play again</button>
+      <a class="btn" href="./">Back to games</a>
+    </div>
+  </div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+const COLORS = ['red','green','yellow','blue'];
+const HEX   = {red:'#e53935',green:'#2e9e48',yellow:'#f5b800',blue:'#1e78d2'};
+const LIGHT = {red:'#ffcdd2',green:'#c8e6c9',yellow:'#fff3c4',blue:'#cfe3fb'};
+const LABEL = {red:'Red',green:'Green',yellow:'Yellow',blue:'Blue'};
+const START = {red:0,green:13,yellow:26,blue:39};
+const SAFE  = new Set([0,8,13,21,26,34,39,47]);
+const LAST_MAIN = 50, FINISH = 56;
+const SEATS_FOR = {2:['red','yellow'],3:['red','green','yellow'],4:['red','green','yellow','blue']};
+const YARD_ORIGIN = {green:[0,0],yellow:[0,9],red:[9,0],blue:[9,9]};
+const FINISH_XY = {red:[7.5,8.45],green:[6.55,7.5],yellow:[7.5,6.55],blue:[8.45,7.5]};
+const HOMECOL = {
+  red:[[13,7],[12,7],[11,7],[10,7],[9,7]], green:[[7,1],[7,2],[7,3],[7,4],[7,5]],
+  yellow:[[1,7],[2,7],[3,7],[4,7],[5,7]], blue:[[7,13],[7,12],[7,11],[7,10],[7,9]],
+};
+const TRACK = [];
+for (let r=13;r>=9;r--) TRACK.push([r,6]);
+for (let c=5;c>=0;c--)  TRACK.push([8,c]);
+TRACK.push([7,0]);
+for (let c=0;c<=5;c++)  TRACK.push([6,c]);
+for (let r=5;r>=0;r--)  TRACK.push([r,6]);
+TRACK.push([0,7]);
+for (let r=0;r<=5;r++)  TRACK.push([r,8]);
+for (let c=9;c<=14;c++) TRACK.push([6,c]);
+TRACK.push([7,14]);
+for (let c=14;c>=9;c--) TRACK.push([8,c]);
+for (let r=9;r<=14;r++) TRACK.push([r,8]);
+TRACK.push([14,7]);
+TRACK.push([14,6]);
+
+const SPEED = Math.max(1, Math.min(50, Number(new URLSearchParams(location.search).get('speed')) || 1));
+const T = ms => ms / (SPEED * RG.speed());
+document.documentElement.style.setProperty('--mv', T(150) + 'ms');
+const $ = id => document.getElementById(id);
+const sleep = RG.sleep, sfx = RG.sfx;
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} },
+};
+const SAVE_KEY = 'rajgar-ludo-save-v2', CFG_KEY = 'rajgar-ludo-cfg-v2';
+RG.bindHeader();
+RG.mountSoundControls(document.getElementById('sound-ctl'));
+RG.makeDie($('dice'));
+
+/* ---------- board ---------- */
+function starPts(cx, cy, R, r){
+  const p = [];
+  for (let k=0;k<10;k++){ const a = -Math.PI/2 + k*Math.PI/5, rad = k%2 ? r : R; p.push((cx+rad*Math.cos(a)).toFixed(3)+','+(cy+rad*Math.sin(a)).toFixed(3)); }
+  return p.join(' ');
+}
+function drawBoard(){
+  const s = ['<rect class="sv-board" x="0" y="0" width="15" height="15"/>'];
+  TRACK.forEach(([r,c], i) => {
+    const col = COLORS.find(x => START[x] === i);
+    s.push(col ? `<rect class="sv-cc" x="${c}" y="${r}" width="1" height="1" fill="${HEX[col]}"/>` : `<rect class="sv-cell" x="${c}" y="${r}" width="1" height="1"/>`);
+  });
+  for (const col of COLORS) HOMECOL[col].forEach(([r,c]) => s.push(`<rect class="sv-cc" x="${c}" y="${r}" width="1" height="1" fill="${HEX[col]}"/>`));
+  [8,21,34,47].forEach(i => { const [r,c] = TRACK[i]; s.push(`<polygon class="sv-star" points="${starPts(c+.5,r+.5,.38,.16)}"/>`); });
+  for (const col of COLORS){ const [r,c] = TRACK[START[col]]; s.push(`<polygon points="${starPts(c+.5,r+.5,.38,.16)}" fill="rgba(255,255,255,.92)"/>`); }
+  // entry arrows into each home column
+  const ARW = {red:[14,7,'0,-1'],green:[7,0,'1,0'],yellow:[0,7,'0,1'],blue:[7,14,'-1,0']};
+  for (const col of COLORS){
+    const [r,c,dir] = ARW[col], [dx,dy] = dir.split(',').map(Number), cx = c+.5, cy = r+.5;
+    s.push(`<polygon points="${cx+dx*.3},${cy+dy*.3} ${cx-dx*.15+dy*.25},${cy-dy*.15+dx*.25} ${cx-dx*.15-dy*.25},${cy-dy*.15-dx*.25}" fill="${HEX[col]}"/>`);
+  }
+  for (const col of COLORS){
+    const [r0,c0] = YARD_ORIGIN[col];
+    s.push(`<rect class="sv-cc" x="${c0}" y="${r0}" width="6" height="6" fill="${HEX[col]}"/>`);
+    s.push(`<rect x="${c0+.8}" y="${r0+.8}" width="4.4" height="4.4" rx=".55" class="sv-cell"/>`);
+    for (const [dx,dy] of [[2,2],[4,2],[2,4],[4,4]]){
+      s.push(`<circle cx="${c0+dx}" cy="${r0+dy}" r=".75" fill="${HEX[col]}"/><circle cx="${c0+dx}" cy="${r0+dy}" r=".58" fill="${LIGHT[col]}"/>`);
+    }
+  }
+  s.push(`<polygon points="6,9 9,9 7.5,7.5" fill="${HEX.red}"/><polygon points="6,6 6,9 7.5,7.5" fill="${HEX.green}"/>`);
+  s.push(`<polygon points="6,6 9,6 7.5,7.5" fill="${HEX.yellow}"/><polygon points="9,6 9,9 7.5,7.5" fill="${HEX.blue}"/>`);
+  s.push('<rect class="sv-frame" x="0.06" y="0.06" width="14.88" height="14.88" rx=".3"/>');
+  $('board-svg').innerHTML = s.join('');
+}
+
+/* ---------- state ---------- */
+let game = null, GEN = 0, tokenEls = {};
+const cur = () => game.players[game.turn];
+const nameOf = color => (game.players.find(p => p.color === color) || {}).name || LABEL[color];
+const isDone = color => game.mode === 'quick' ? game.tokens[color].some(r => r === FINISH) : game.tokens[color].every(r => r === FINISH);
+const humans = () => game.players.filter(p => p.type === 'human');
+const vsComputer = () => humans().length === 1 && game.players.length > 1;
+
+function tokenXY(color, i, rel){
+  if (rel < 0){ const [r0,c0] = YARD_ORIGIN[color]; return [c0 + (i%2 ? 4 : 2), r0 + (i<2 ? 2 : 4)]; }
+  if (rel <= LAST_MAIN){ const [r,c] = TRACK[(START[color] + rel) % 52]; return [c+.5, r+.5]; }
+  if (rel < FINISH){ const [r,c] = HOMECOL[color][rel-51]; return [c+.5, r+.5]; }
+  return FINISH_XY[color];
+}
+const boardIdx = (color, rel) => (rel >= 0 && rel <= LAST_MAIN) ? (START[color] + rel) % 52 : -1;
+function cellKey(color, rel, i){
+  if (rel < 0) return color + 'y' + i;
+  if (rel <= LAST_MAIN) return 'm' + boardIdx(color, rel);
+  if (rel < FINISH) return color + 'h' + rel;
+  return color + 'f';
+}
+function buildTokens(){
+  const box = $('tokens'); box.innerHTML = ''; tokenEls = {};
+  for (const p of game.players){
+    tokenEls[p.color] = [0,1,2,3].map(i => {
+      const b = document.createElement('button');
+      b.className = 'token t-' + p.color;
+      b.setAttribute('aria-label', `${LABEL[p.color]} token ${i+1}`);
+      b.addEventListener('click', () => onTokenTap(p.color, i));
+      box.appendChild(b); return b;
+    });
+  }
+}
+function render(){
+  const groups = {};
+  for (const p of game.players) game.tokens[p.color].forEach((rel, i) => { const k = cellKey(p.color, rel, i); (groups[k] = groups[k] || []).push([p.color, i]); });
+  const OFF2 = [[-.17,0],[.17,0]], OFF4 = [[-.2,-.2],[.2,-.2],[-.2,.2],[.2,.2]];
+  for (const k in groups){
+    const g = groups[k], n = g.length;
+    g.forEach(([color, i], j) => {
+      const rel = game.tokens[color][i];
+      let [x, y] = tokenXY(color, i, rel), sc = 1;
+      if (rel === FINISH){ const o = OFF4[j % 4]; x += o[0]*.8; y += o[1]*.8; sc = .58; }
+      else if (n === 2){ x += OFF2[j][0]; sc = .8; }
+      else if (n > 2){ const o = OFF4[j % 4]; x += o[0]; y += o[1]; sc = .66; }
+      const el = tokenEls[color][i];
+      el.style.left = (x/15*100) + '%'; el.style.top = (y/15*100) + '%'; el.style.setProperty('--s', sc);
+    });
+  }
+}
+function updateNames(){
+  document.querySelectorAll('.pname').forEach(el => {
+    const color = el.dataset.color, p = game && game.players.find(q => q.color === color);
+    el.classList.toggle('off', !p); el.style.setProperty('--c', HEX[color]);
+    if (!p) return;
+    const rank = game.ranks.indexOf(color);
+    const medal = rank >= 0 ? ' ' + (['🥇','🥈','🥉','4th'][rank]) : '';
+    el.innerHTML = `<span class="av">${p.avatar}</span><span>${p.name}${medal}</span>`;
+    el.classList.toggle('active', !game.over && cur().color === color);
+  });
+}
+function updateHUD(){
+  const p = cur(), c = HEX[p.color];
+  $('turn-dot').style.background = c; $('turn-dot').style.boxShadow = `0 0 10px ${c}`;
+  $('turn-name').textContent = p.type === 'ai' ? `${p.name} is playing` : (p.isYou ? 'Your turn' : `${p.name}'s turn`);
+  $('dice').style.borderColor = c;
+  updateNames();
+}
+function updateLucky(){
+  const show = !!game && !game.over && game.phase === 'roll' && cur().type === 'human' && vsComputer() && (RG.P.power.lucky6||0) > 0 && game.sixCount < 2;
+  $('lucky').hidden = !show;
+  $('lucky-n').textContent = '×' + (RG.P.power.lucky6||0);
+}
+const clearHighlight = () => { for (const c in tokenEls) tokenEls[c].forEach(el => el.classList.remove('can')); };
+
+/* ---------- flow ---------- */
+function newGame(cfg, mode){
+  GEN++;
+  game = { mode, players:cfg.map(p => ({...p})), tokens:{}, turn:0, sixCount:0, ranks:[], dice:0, phase:'roll', movable:[], over:false };
+  for (const p of game.players) game.tokens[p.color] = mode === 'quick' ? [0,0,0,0] : [-1,-1,-1,-1];
+  beginGame();
+}
+function beginGame(){
+  buildTokens(); render(); closeModals(); RG.keepAwake(true);
+  $('btn-continue').hidden = false;
+  startTurn();
+}
+function save(){
+  if (!game || game.over) return;
+  store.set(SAVE_KEY, { v:2, mode:game.mode, players:game.players, tokens:game.tokens, turn:game.turn, sixCount:game.sixCount, ranks:game.ranks });
+}
+function startTurn(){
+  const gen = GEN;
+  game.phase = 'roll'; game.movable = [];
+  save(); updateHUD(); clearHighlight(); updateLucky();
+  const p = cur(), dice = $('dice');
+  if (p.type === 'ai'){
+    dice.disabled = true; dice.classList.remove('ready'); setStatus('Rolling…');
+    (async () => {
+      await sleep(T(600));
+      while (!$('setup').hidden){ await sleep(300); if (gen !== GEN) return; }
+      if (gen === GEN) roll();
+    })();
+  } else {
+    dice.disabled = false; dice.classList.add('ready');
+    setStatus(game.sixCount ? 'Bonus roll! Tap the dice' : 'Tap the dice to roll');
+  }
+}
+const setStatus = m => { $('status').textContent = m; };
+function movableTokens(color, d){
+  const out = [];
+  game.tokens[color].forEach((r, i) => { if (r < 0){ if (d === 6) out.push(i); } else if (r < FINISH && r + d <= FINISH) out.push(i); });
+  return out;
+}
+async function roll(forced){
+  if (!game || game.phase !== 'roll') return;
+  const gen = GEN, p = cur(), dice = $('dice');
+  game.phase = 'rolling'; $('lucky').hidden = true;
+  dice.classList.remove('ready'); dice.disabled = true; dice.classList.add('rolling');
+  sfx.roll();
+  for (let k=0;k<5;k++){ RG.setDie(dice, 1 + Math.floor(Math.random()*6)); await sleep(T(60)); if (gen !== GEN) return; }
+  dice.classList.remove('rolling');
+  const d = forced || RG.rand6();
+  game.dice = d; RG.setDie(dice, d); sfx.land();
+  if (d === 6){
+    game.sixCount++;
+    if (game.sixCount === 3){
+      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed ❌`); sfx.error();
+      await sleep(T(1100)); if (gen !== GEN) return;
+      return nextPlayer();
+    }
+  } else game.sixCount = 0;
+  const mv = movableTokens(p.color, d);
+  game.movable = mv;
+  if (!mv.length){
+    setStatus(`Rolled ${d} — no move`);
+    await sleep(T(850)); if (gen !== GEN) return;
+    return d === 6 ? startTurn() : nextPlayer();
+  }
+  game.phase = 'move';
+  if (p.type === 'ai'){
+    setStatus(`Rolled ${d}`);
+    await sleep(T(380)); if (gen !== GEN) return;
+    return moveToken(p.color, aiChoose(p.color, d, mv));
+  }
+  if (new Set(mv.map(i => game.tokens[p.color][i])).size === 1){
+    setStatus(`Rolled ${d}`);
+    await sleep(T(250)); if (gen !== GEN) return;
+    return moveToken(p.color, mv[0]);
+  }
+  mv.forEach(i => tokenEls[p.color][i].classList.add('can'));
+  setStatus(`Rolled ${d} — tap a token`);
+}
+function onTokenTap(color, i){
+  if (!game || game.phase !== 'move') return;
+  const p = cur();
+  if (p.type !== 'human') return;
+  // tapping a stack where a movable token of the current colour sits also works
+  if (p.color !== color || !game.movable.includes(i)){
+    const key = cellKey(color, game.tokens[color][i], i);
+    const alt = game.movable.find(j => cellKey(p.color, game.tokens[p.color][j], j) === key);
+    if (alt === undefined) return;
+    i = alt; color = p.color;
+  }
+  moveToken(color, i);
+}
+async function moveToken(color, i){
+  const gen = GEN, d = game.dice, p = cur();
+  game.phase = 'anim'; clearHighlight();
+  const el = tokenEls[color][i]; el.classList.add('moving');
+  const from = game.tokens[color][i];
+  let bonus = false;
+  if (from < 0){
+    game.tokens[color][i] = 0; render(); sfx.open();
+    await sleep(T(280)); if (gen !== GEN) return;
+  } else {
+    const target = from + d;
+    while (game.tokens[color][i] < target){
+      game.tokens[color][i]++; render(); sfx.step();
+      await sleep(T(160)); if (gen !== GEN) return;
+    }
+  }
+  el.classList.remove('moving');
+  const rel = game.tokens[color][i], bi = boardIdx(color, rel);
+  if (bi >= 0 && !SAFE.has(bi)){
+    const victims = [];
+    for (const q of game.players) if (q.color !== color)
+      game.tokens[q.color].forEach((r, j) => { if (boardIdx(q.color, r) === bi) victims.push([q.color, j]); });
+    if (victims.length){
+      victims.forEach(([c, j]) => { game.tokens[c][j] = -1; });
+      render(); sfx.capture(); RG.vibrate(120); bonus = true;
+      RG.toast(`${p.name} captured ${[...new Set(victims.map(v => nameOf(v[0])))].join(' & ')}! 💥`);
+      await sleep(T(500)); if (gen !== GEN) return;
+    }
+  }
+  if (rel === FINISH){
+    bonus = true; sfx.home();
+    if (isDone(color)){
+      game.ranks.push(color);
+      const left = game.players.filter(q => !game.ranks.includes(q.color));
+      const anyHuman = humans().length > 0;
+      if (game.mode === 'quick' || left.length <= 1 || (anyHuman && left.every(q => q.type === 'ai'))){
+        left.sort((a, b) => progress(b.color) - progress(a.color)).forEach(q => game.ranks.push(q.color));
+        return gameOver();
+      }
+      RG.toast(`${p.name} finished ${['1st','2nd','3rd'][game.ranks.length-1] || ''}! 🏁`, 2200);
+      await sleep(T(600)); if (gen !== GEN) return;
+      return nextPlayer();
+    }
+    RG.toast(`${p.name}: token home! 🏠`);
+  }
+  if (d === 6) bonus = true;
+  if (bonus) return startTurn();
+  nextPlayer();
+}
+const progress = color => game.tokens[color].reduce((s, r) => s + (r < 0 ? 0 : r + 1), 0);
+function nextPlayer(){
+  game.sixCount = 0;
+  let n = game.turn;
+  do { n = (n + 1) % game.players.length; } while (game.ranks.includes(game.players[n].color));
+  game.turn = n; startTurn();
+}
+function gameOver(){
+  game.over = true; game.phase = 'over';
+  store.del(SAVE_KEY); RG.keepAwake(false);
+  $('btn-continue').hidden = true; $('lucky').hidden = true;
+  $('dice').disabled = true; $('dice').classList.remove('ready');
+  updateNames(); sfx.win(); RG.vibrate([80,60,80]);
+  const winner = game.players.find(q => q.color === game.ranks[0]);
+  $('result-title').textContent = winner.isYou ? '🎉 You win!' : `🏆 ${winner.name} wins!`;
+  $('ranks').innerHTML = game.ranks.map((c, k) => {
+    const pl = game.players.find(q => q.color === c);
+    return `<div class="rank"><span class="m">${['🥇','🥈','🥉','4'][k]}</span><span class="dot" style="background:${HEX[c]}"></span><span>${pl.avatar} ${pl.name}</span></div>`;
+  }).join('');
+  let reward = '';
+  if (vsComputer()){
+    const won = winner.type === 'human';
+    RG.recordGame('ludo', won);
+    const amt = RG.winCoins(won ? (game.mode === 'quick' ? 25 : 50) : 5);
+    reward = `+${amt} 🪙 coins${RG.isPremium() && amt ? ' (2× Premium)' : ''}`;
+    if (amt) setTimeout(() => sfx.coin(), 600);
+  }
+  $('reward').textContent = reward;
+  setTimeout(() => { $('result').hidden = false; }, T(900));
+  setStatus('Game over');
+}
+
+/* ---------- computer player ---------- */
+function threatAt(color, bi){
+  if (bi < 0 || SAFE.has(bi)) return 0;
+  let t = 0;
+  for (const q of game.players){
+    if (q.color === color || game.ranks.includes(q.color)) continue;
+    for (const r of game.tokens[q.color]){
+      if (r < 0 || r > LAST_MAIN) continue;
+      const dist = (bi - boardIdx(q.color, r) + 52) % 52;
+      if (dist >= 1 && dist <= 6 && r + dist <= LAST_MAIN) t++;
+    }
+  }
+  return t;
+}
+function scoreMove(color, i, d){
+  const r = game.tokens[color][i], nr = r < 0 ? 0 : r + d;
+  const ob = boardIdx(color, r), nb = boardIdx(color, nr);
+  let s = nr * .4;
+  if (nr === FINISH) s += 120;
+  if (r < 0) s += 70;
+  if (nb >= 0 && !SAFE.has(nb))
+    for (const q of game.players) if (q.color !== color)
+      for (const orl of game.tokens[q.color]) if (boardIdx(q.color, orl) === nb) s += 90 + orl;
+  if (r <= LAST_MAIN && nr > LAST_MAIN && nr < FINISH) s += 45;
+  if (nb >= 0 && SAFE.has(nb)) s += 22;
+  if (ob >= 0){ const before = threatAt(color, ob); if (before) s += 25*before + r*.3; }
+  if (nb >= 0){ const after = threatAt(color, nb); if (after) s -= 35*after + nr*.3; }
+  return s;
+}
+function aiChoose(color, d, mv){
+  let best = mv[0], bs = -Infinity;
+  for (const i of mv){ const s = scoreMove(color, i, d) + Math.random()*2; if (s > bs){ bs = s; best = i; } }
+  return best;
+}
+
+/* ---------- setup ---------- */
+let cfg = store.get(CFG_KEY) || { n:2, mode:'classic', types:{red:'human',green:'ai',yellow:'ai',blue:'ai'} };
+function buildCfg(){
+  const colors = SEATS_FOR[cfg.n];
+  const hs = colors.filter(c => cfg.types[c] === 'human').length, ais = colors.length - hs;
+  return colors.map(c => {
+    const type = cfg.types[c];
+    if (type === 'human') return hs === 1 ? { color:c, type, name:RG.P.name, avatar:RG.P.avatar, isYou:true } : { color:c, type, name:LABEL[c], avatar:'👤' };
+    return { color:c, type, name: ais === 1 ? 'Computer' : `${LABEL[c]} CPU`, avatar:'🤖' };
+  });
+}
+function renderSetup(){
+  document.querySelectorAll('#seg-count button').forEach(b => b.classList.toggle('on', +b.dataset.n === cfg.n));
+  document.querySelectorAll('#seg-mode button').forEach(b => b.classList.toggle('on', b.dataset.m === cfg.mode));
+  $('mode-note').textContent = cfg.mode === 'quick' ? 'Tokens start on the board · first token home wins · ~5 min' : 'All four tokens home to win · ~20 min';
+  $('seats').innerHTML = SEATS_FOR[cfg.n].map(c => `
+    <div class="seat"><span class="dot" style="background:${HEX[c]}"></span><span class="nm">${LABEL[c]}</span>
+      <button data-c="${c}" data-t="human" class="${cfg.types[c]==='human'?'on':''}">Player</button>
+      <button data-c="${c}" data-t="ai" class="${cfg.types[c]==='ai'?'on':''}">Computer</button></div>`).join('');
+  $('btn-resume').hidden = !store.get(SAVE_KEY) || !!(game && !game.over);
+}
+$('seg-count').addEventListener('click', e => { const n = +e.target.dataset.n; if (!n) return; cfg.n = n; store.set(CFG_KEY, cfg); renderSetup(); });
+$('seg-mode').addEventListener('click', e => { const m = e.target.dataset.m; if (!m) return; cfg.mode = m; store.set(CFG_KEY, cfg); renderSetup(); });
+$('seats').addEventListener('click', e => { const c = e.target.dataset.c; if (!c) return; cfg.types[c] = e.target.dataset.t; store.set(CFG_KEY, cfg); renderSetup(); });
+$('btn-start').addEventListener('click', () => { store.del(SAVE_KEY); newGame(buildCfg(), cfg.mode); });
+$('btn-resume').addEventListener('click', () => {
+  const s = store.get(SAVE_KEY); if (!s) return;
+  GEN++;
+  game = { mode:s.mode || 'classic', players:s.players, tokens:s.tokens, turn:s.turn, sixCount:s.sixCount || 0, ranks:s.ranks || [], dice:0, phase:'roll', movable:[], over:false };
+  beginGame();
+});
+$('btn-continue').addEventListener('click', closeModals);
+$('btn-menu').addEventListener('click', () => { renderSetup(); $('result').hidden = true; $('setup').hidden = false; });
+$('btn-again').addEventListener('click', () => newGame(buildCfg(), game.mode));
+function closeModals(){ $('setup').hidden = true; $('result').hidden = true; }
+$('dice').addEventListener('click', () => { if (game && cur().type === 'human') roll(); });
+$('lucky').addEventListener('click', () => {
+  if (!game || game.phase !== 'roll' || cur().type !== 'human' || !vsComputer()) return;
+  if (!RG.usePower('lucky6')) return;
+  RG.toast('🍀 Lucky Six used!'); roll(6);
+});
+RG.onChange(() => { if (game) updateLucky(); });
+
+drawBoard(); renderSetup();
+window.__ludo = { get game(){ return game; } };
+</script>
+</body>
+</html>

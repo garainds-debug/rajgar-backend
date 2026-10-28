@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Snakes &amp; Ladders – RAJGAR Ludo</title>
+<meta name="theme-color" content="#0d2818">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+<style>
+  .board .token{width:7.2%}
+  .board .token.off{display:none}
+</style>
+</head>
+<body class="game">
+  <header class="topbar">
+    <a class="hud-btn" href="./">‹ Games</a>
+    <div class="brand">🐍 SNAKES</div>
+    <div class="hud"><span class="chip" data-coins></span><button id="btn-menu" class="hud-btn">☰</button></div>
+  </header>
+
+  <div class="names"><div class="pname off" data-color="green"></div><div class="pname off" data-color="yellow"></div></div>
+  <div id="board" class="board" aria-label="Snakes and ladders board">
+    <svg id="board-svg" viewBox="0 0 10 10" aria-hidden="true"></svg>
+    <div id="tokens" class="tokens"></div>
+  </div>
+  <div class="names"><div class="pname off" data-color="red"></div><div class="pname off" data-color="blue"></div></div>
+
+  <div class="controls">
+    <div class="turn">
+      <div id="turn-dot" class="turn-dot"></div>
+      <div><div id="turn-name" class="turn-name">Snakes &amp; Ladders</div><div id="status" class="status">Choose players to start</div></div>
+    </div>
+    <button id="lucky" class="power" hidden>🍀 Lucky 6 <span id="lucky-n"></span></button>
+    <button id="dice" class="die" aria-label="Roll dice" disabled></button>
+  </div>
+
+  <div id="setup" class="modal">
+    <div class="sheet">
+      <h1>🐍 SNAKES &amp; LADDERS 🪜</h1>
+      <div class="sub">Climb the ladders, dodge the snakes — first to 100 wins</div>
+      <button id="btn-continue" class="btn" hidden>Continue current game</button>
+      <button id="btn-resume" class="btn primary" hidden>Resume saved game</button>
+      <div class="label">Number of players</div>
+      <div class="seg" id="seg-count"><button data-n="2">2</button><button data-n="3">3</button><button data-n="4">4</button></div>
+      <div class="label">Who plays each colour</div>
+      <div id="seats"></div>
+      <div class="label">Finish rule</div>
+      <div class="seg" id="seg-exact" style="--n:2"><button data-x="1">Exact 100 (bounce)</button><button data-x="0">Any roll</button></div>
+      <button id="btn-start" class="btn primary">Start game</button>
+      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="rules">
+        <summary>How to play</summary>
+        <ul>
+          <li>Roll and move. Land at the foot of a ladder to climb; land on a snake's head to slide down.</li>
+          <li>A <b>6</b> gives another roll. Three 6s in a row and your turn lapses.</li>
+          <li><b>Exact 100:</b> if you overshoot, you bounce back by the extra steps.</li>
+          <li>Win vs Computer to earn coins 🪙.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="result" class="modal" hidden>
+    <div class="sheet">
+      <h2 id="result-title">Game over</h2>
+      <div id="ranks"></div>
+      <div id="reward" class="reward"></div>
+      <button id="btn-again" class="btn primary">Play again</button>
+      <a class="btn" href="./">Back to games</a>
+    </div>
+  </div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+const HEX   = {red:'#e53935',green:'#2e9e48',yellow:'#f5b800',blue:'#1e78d2'};
+const LABEL = {red:'Red',green:'Green',yellow:'Yellow',blue:'Blue'};
+const SEATS_FOR = {2:['red','yellow'],3:['red','green','yellow'],4:['red','green','yellow','blue']};
+const LADDERS = {1:38, 4:14, 9:31, 21:42, 28:84, 36:44, 51:67, 71:91, 80:100};
+const SNAKES  = {16:6, 47:26, 49:11, 56:53, 62:19, 64:60, 87:24, 93:73, 95:75, 98:78};
+const SNAKE_COL = ['#2e7d32','#c62828','#6a1b9a','#ef6c00','#00838f','#ad1457','#558b2f','#4527a0','#d84315','#1565c0'];
+const ROWTINT = ['#ffcdd2','#c8e6c9','#fff3c4','#cfe3fb','#f8d4ff'];
+
+const SPEED = Math.max(1, Math.min(50, Number(new URLSearchParams(location.search).get('speed')) || 1));
+const T = ms => ms / (SPEED * RG.speed());
+document.documentElement.style.setProperty('--mv', T(150) + 'ms');
+const $ = id => document.getElementById(id);
+const sleep = RG.sleep, sfx = RG.sfx;
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} },
+};
+const SAVE_KEY = 'rajgar-snakes-save-v1', CFG_KEY = 'rajgar-snakes-cfg-v1';
+RG.bindHeader();
+RG.mountSoundControls(document.getElementById('sound-ctl'));
+RG.makeDie($('dice'));
+
+function cellXY(n){
+  const r = Math.floor((n-1)/10), i = (n-1) % 10, col = r % 2 === 0 ? i : 9 - i;
+  return [col + .5, 9 - r + .5];
+}
+
+/* ---------- board ---------- */
+function drawBoard(){
+  const s = ['<rect class="sv-board" x="0" y="0" width="10" height="10"/>'];
+  for (let n=1;n<=100;n++){
+    const [x,y] = cellXY(n), r = Math.floor((n-1)/10);
+    const checker = (Math.floor(x) + Math.floor(y)) % 2 === 0;
+    s.push(checker ? `<rect class="sv-cell" x="${x-.5}" y="${y-.5}" width="1" height="1"/>`
+                   : `<rect class="sv-cc" x="${x-.5}" y="${y-.5}" width="1" height="1" fill="${ROWTINT[r%5]}" fill-opacity=".75"/>`);
+    s.push(`<text class="sv-num" x="${x-.42}" y="${y-.22}" font-size=".24">${n}</text>`);
+  }
+  s.push(`<text x="0.5" y="0.72" font-size=".5" text-anchor="middle">🏆</text>`);
+  // ladders
+  for (const a in LADDERS){
+    const [x1,y1] = cellXY(+a), [x2,y2] = cellXY(LADDERS[a]);
+    const dx = x2-x1, dy = y2-y1, L = Math.hypot(dx,dy), px = -dy/L*.2, py = dx/L*.2;
+    s.push(`<g opacity=".95"><line x1="${x1+px+.04}" y1="${y1+py+.06}" x2="${x2+px+.04}" y2="${y2+py+.06}" stroke="rgba(0,0,0,.25)" stroke-width=".12" stroke-linecap="round"/>`);
+    s.push(`<line x1="${x1-px+.04}" y1="${y1-py+.06}" x2="${x2-px+.04}" y2="${y2-py+.06}" stroke="rgba(0,0,0,.25)" stroke-width=".12" stroke-linecap="round"/>`);
+    const rungs = Math.max(2, Math.floor(L / .42));
+    for (let k=1;k<rungs;k++){
+      const t = k/rungs, cx = x1+dx*t, cy = y1+dy*t;
+      s.push(`<line x1="${cx+px}" y1="${cy+py}" x2="${cx-px}" y2="${cy-py}" stroke="#c68642" stroke-width=".08" stroke-linecap="round"/>`);
+    }
+    s.push(`<line x1="${x1+px}" y1="${y1+py}" x2="${x2+px}" y2="${y2+py}" stroke="#8d5524" stroke-width=".1" stroke-linecap="round"/>`);
+    s.push(`<line x1="${x1-px}" y1="${y1-py}" x2="${x2-px}" y2="${y2-py}" stroke="#8d5524" stroke-width=".1" stroke-linecap="round"/></g>`);
+  }
+  // snakes
+  Object.keys(SNAKES).forEach((h, idx) => {
+    const [hx,hy] = cellXY(+h), [tx,ty] = cellXY(SNAKES[h]);
+    const dx = tx-hx, dy = ty-hy, L = Math.hypot(dx,dy), ux = dx/L, uy = dy/L, px = -uy, py = ux;
+    const waves = Math.max(1.5, L/1.6), amp = Math.min(.42, .12 + L*.05);
+    const pts = [];
+    for (let k=0;k<=40;k++){
+      const t = k/40, off = Math.sin(t*Math.PI*waves) * amp * (1 - t*.4);
+      pts.push(`${(hx+dx*t+px*off).toFixed(3)},${(hy+dy*t+py*off).toFixed(3)}`);
+    }
+    const d = 'M' + pts.join(' L'), col = SNAKE_COL[idx % SNAKE_COL.length];
+    s.push(`<g><path d="${d}" fill="none" stroke="rgba(0,0,0,.35)" stroke-width=".34" stroke-linecap="round" stroke-linejoin="round" transform="translate(.04,.06)"/>`);
+    s.push(`<path d="${d}" fill="none" stroke="${col}" stroke-width=".28" stroke-linecap="round" stroke-linejoin="round"/>`);
+    s.push(`<path d="${d}" fill="none" stroke="rgba(255,255,255,.45)" stroke-width=".08" stroke-dasharray=".1 .16" stroke-linecap="round"/>`);
+    const ang = Math.atan2(-uy, -ux) * 180 / Math.PI;
+    s.push(`<g transform="translate(${hx},${hy}) rotate(${ang})"><ellipse cx="0" cy="0" rx=".27" ry=".21" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width=".03"/>`);
+    s.push(`<circle cx=".08" cy="-.09" r=".06" fill="#fff"/><circle cx=".08" cy=".09" r=".06" fill="#fff"/><circle cx=".1" cy="-.09" r=".03" fill="#111"/><circle cx=".1" cy=".09" r=".03" fill="#111"/>`);
+    s.push(`<path d="M.26,0 L.4,0 M.4,0 L.46,-.05 M.4,0 L.46,.05" stroke="#e53935" stroke-width=".025" stroke-linecap="round"/></g></g>`);
+  });
+  s.push('<rect class="sv-frame" x="0.04" y="0.04" width="9.92" height="9.92" rx=".2" style="stroke-width:.08"/>');
+  $('board-svg').innerHTML = s.join('');
+}
+
+/* ---------- state ---------- */
+let game = null, GEN = 0, tokenEls = {};
+const cur = () => game.players[game.turn];
+const vsComputer = () => game.players.filter(p => p.type === 'human').length === 1;
+
+function buildTokens(){
+  const box = $('tokens'); box.innerHTML = ''; tokenEls = {};
+  for (const p of game.players){
+    const b = document.createElement('div');
+    b.className = 'token t-' + p.color; box.appendChild(b); tokenEls[p.color] = b;
+  }
+}
+function render(){
+  const groups = {};
+  for (const p of game.players){ const k = game.pos[p.color]; (groups[k] = groups[k] || []).push(p.color); }
+  const OFF4 = [[-.2,-.2],[.2,-.2],[-.2,.2],[.2,.2]];
+  for (const k in groups){
+    const g = groups[k];
+    g.forEach((color, j) => {
+      const el = tokenEls[color], pos = +k;
+      el.classList.toggle('off', pos === 0);
+      if (pos === 0) return;
+      let [x,y] = cellXY(pos), sc = 1;
+      if (g.length > 1){ x += OFF4[j][0]; y += OFF4[j][1]; sc = .72; }
+      el.style.left = (x*10) + '%'; el.style.top = (y*10) + '%'; el.style.setProperty('--s', sc);
+    });
+  }
+  updateNames();
+}
+function updateNames(){
+  document.querySelectorAll('.pname').forEach(el => {
+    const color = el.dataset.color, p = game && game.players.find(q => q.color === color);
+    el.classList.toggle('off', !p); el.style.setProperty('--c', HEX[color]);
+    if (!p) return;
+    const pos = game.pos[color];
+    el.innerHTML = `<span class="av">${p.avatar}</span><span>${p.name} <small>${pos ? '· ' + pos : '· start'}</small></span>`;
+    el.classList.toggle('active', !game.over && cur().color === color);
+  });
+}
+function updateHUD(){
+  const p = cur(), c = HEX[p.color];
+  $('turn-dot').style.background = c; $('turn-dot').style.boxShadow = `0 0 10px ${c}`;
+  $('turn-name').textContent = p.type === 'ai' ? `${p.name} is playing` : (p.isYou ? 'Your turn' : `${p.name}'s turn`);
+  $('dice').style.borderColor = c;
+  updateNames(); updateLucky();
+}
+function updateLucky(){
+  const show = !!game && !game.over && game.phase === 'roll' && cur().type === 'human' && vsComputer() && (RG.P.power.lucky6||0) > 0 && game.sixes < 2;
+  $('lucky').hidden = !show; $('lucky-n').textContent = '×' + (RG.P.power.lucky6||0);
+}
+const setStatus = m => { $('status').textContent = m; };
+
+function newGame(players, exact){
+  GEN++;
+  game = { players, exact, pos:{}, turn:0, phase:'roll', over:false, sixes:0 };
+  players.forEach(p => game.pos[p.color] = 0);
+  begin();
+}
+function begin(){ buildTokens(); render(); closeModals(); RG.keepAwake(true); $('btn-continue').hidden = false; startTurn(); }
+function save(){ if (game && !game.over) store.set(SAVE_KEY, { players:game.players, exact:game.exact, pos:game.pos, turn:game.turn }); }
+
+function startTurn(){
+  const gen = GEN;
+  game.phase = 'roll'; save(); updateHUD();
+  const p = cur(), dice = $('dice');
+  if (p.type === 'ai'){
+    dice.disabled = true; dice.classList.remove('ready'); setStatus('Rolling…');
+    (async () => { await sleep(T(550)); while (!$('setup').hidden){ await sleep(300); if (gen !== GEN) return; } if (gen === GEN) roll(); })();
+  } else {
+    dice.disabled = false; dice.classList.add('ready'); setStatus(game.sixes ? 'Bonus roll! Tap the dice' : 'Tap the dice to roll');
+  }
+}
+async function roll(forced){
+  if (!game || game.phase !== 'roll') return;
+  const gen = GEN, p = cur(), dice = $('dice'), el = tokenEls[p.color];
+  game.phase = 'anim'; $('lucky').hidden = true;
+  dice.classList.remove('ready'); dice.disabled = true; dice.classList.add('rolling'); sfx.roll();
+  for (let k=0;k<5;k++){ RG.setDie(dice, 1 + Math.floor(Math.random()*6)); await sleep(T(60)); if (gen !== GEN) return; }
+  dice.classList.remove('rolling');
+  const d = forced || RG.rand6(); RG.setDie(dice, d); sfx.land();
+  setStatus(`Rolled ${d}`);
+  if (d === 6){
+    game.sixes++;
+    if (game.sixes === 3){
+      game.sixes = 0;
+      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed ❌`); sfx.error();
+      await sleep(T(1100)); if (gen !== GEN) return;
+      game.turn = (game.turn + 1) % game.players.length;
+      return startTurn();
+    }
+  } else game.sixes = 0;
+  await sleep(T(200)); if (gen !== GEN) return;
+
+  let pos = game.pos[p.color];
+  if (!game.exact || pos + d <= 100){
+    const target = Math.min(100, pos + d);
+    while (game.pos[p.color] < target){ game.pos[p.color]++; render(); sfx.step(); await sleep(T(170)); if (gen !== GEN) return; }
+  } else {
+    let left = d;
+    while (game.pos[p.color] < 100 && left){ game.pos[p.color]++; left--; render(); sfx.step(); await sleep(T(170)); if (gen !== GEN) return; }
+    if (left) RG.toast('Bounce back! ↩');
+    while (left){ game.pos[p.color]--; left--; render(); sfx.step(); await sleep(T(170)); if (gen !== GEN) return; }
+  }
+  pos = game.pos[p.color];
+  if (LADDERS[pos] || SNAKES[pos]){
+    const up = !!LADDERS[pos], to = up ? LADDERS[pos] : SNAKES[pos];
+    await sleep(T(150)); if (gen !== GEN) return;
+    up ? sfx.ladder() : sfx.snake();
+    if (!up) RG.vibrate(100);
+    RG.toast(up ? `${p.name} climbs a ladder to ${to}! 🪜` : `${p.name} bitten! Down to ${to} 🐍`);
+    el.classList.add('slide'); game.pos[p.color] = to; render();
+    await sleep(T(750)); if (gen !== GEN) return;
+    el.classList.remove('slide');
+  }
+  if (game.pos[p.color] === 100) return gameOver(p);
+  if (d === 6) return startTurn();
+  game.sixes = 0;
+  game.turn = (game.turn + 1) % game.players.length;
+  startTurn();
+}
+function gameOver(winner){
+  game.over = true; game.phase = 'over'; store.del(SAVE_KEY); RG.keepAwake(false);
+  $('dice').disabled = true; $('dice').classList.remove('ready'); $('lucky').hidden = true; $('btn-continue').hidden = true;
+  updateNames(); sfx.win(); RG.vibrate([80,60,80]);
+  $('result-title').textContent = winner.isYou ? '🎉 You win!' : `🏆 ${winner.name} wins!`;
+  const order = [...game.players].sort((a,b) => game.pos[b.color] - game.pos[a.color]);
+  $('ranks').innerHTML = order.map((p,k) => `<div class="rank"><span class="m">${['🥇','🥈','🥉','4'][k]}</span><span class="dot" style="background:${HEX[p.color]}"></span><span>${p.avatar} ${p.name} · ${game.pos[p.color]}</span></div>`).join('');
+  let reward = '';
+  if (vsComputer()){
+    const won = winner.type === 'human';
+    RG.recordGame('snakes', won);
+    const amt = RG.winCoins(won ? 30 : 3);
+    reward = `+${amt} 🪙 coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
+    setTimeout(() => sfx.coin(), 600);
+  }
+  $('reward').textContent = reward;
+  setTimeout(() => { $('result').hidden = false; }, T(800));
+  setStatus('Game over');
+}
+
+/* ---------- setup ---------- */
+let cfg = store.get(CFG_KEY) || { n:2, exact:true, types:{red:'human',green:'ai',yellow:'ai',blue:'ai'} };
+function buildPlayers(){
+  const colors = SEATS_FOR[cfg.n];
+  const hs = colors.filter(c => cfg.types[c] === 'human').length, ais = colors.length - hs;
+  return colors.map(c => cfg.types[c] === 'human'
+    ? (hs === 1 ? { color:c, type:'human', name:RG.P.name, avatar:RG.P.avatar, isYou:true } : { color:c, type:'human', name:LABEL[c], avatar:'👤' })
+    : { color:c, type:'ai', name: ais === 1 ? 'Computer' : `${LABEL[c]} CPU`, avatar:'🤖' });
+}
+function renderSetup(){
+  document.querySelectorAll('#seg-count button').forEach(b => b.classList.toggle('on', +b.dataset.n === cfg.n));
+  document.querySelectorAll('#seg-exact button').forEach(b => b.classList.toggle('on', (b.dataset.x === '1') === cfg.exact));
+  $('seats').innerHTML = SEATS_FOR[cfg.n].map(c => `
+    <div class="seat"><span class="dot" style="background:${HEX[c]}"></span><span class="nm">${LABEL[c]}</span>
+      <button data-c="${c}" data-t="human" class="${cfg.types[c]==='human'?'on':''}">Player</button>
+      <button data-c="${c}" data-t="ai" class="${cfg.types[c]==='ai'?'on':''}">Computer</button></div>`).join('');
+  $('btn-resume').hidden = !store.get(SAVE_KEY) || !!(game && !game.over);
+}
+$('seg-count').addEventListener('click', e => { const n = +e.target.dataset.n; if (!n) return; cfg.n = n; store.set(CFG_KEY, cfg); renderSetup(); });
+$('seg-exact').addEventListener('click', e => { if (!e.target.dataset.x) return; cfg.exact = e.target.dataset.x === '1'; store.set(CFG_KEY, cfg); renderSetup(); });
+$('seats').addEventListener('click', e => { const c = e.target.dataset.c; if (!c) return; cfg.types[c] = e.target.dataset.t; store.set(CFG_KEY, cfg); renderSetup(); });
+$('btn-start').addEventListener('click', () => { store.del(SAVE_KEY); newGame(buildPlayers(), cfg.exact); });
+$('btn-resume').addEventListener('click', () => {
+  const s = store.get(SAVE_KEY); if (!s) return;
+  GEN++; game = { players:s.players, exact:s.exact, pos:s.pos, turn:s.turn, phase:'roll', over:false, sixes:0 }; begin();
+});
+$('btn-continue').addEventListener('click', closeModals);
+$('btn-menu').addEventListener('click', () => { renderSetup(); $('result').hidden = true; $('setup').hidden = false; });
+$('btn-again').addEventListener('click', () => newGame(buildPlayers(), cfg.exact));
+function closeModals(){ $('setup').hidden = true; $('result').hidden = true; }
+$('dice').addEventListener('click', () => { if (game && cur().type === 'human') roll(); });
+$('lucky').addEventListener('click', () => {
+  if (!game || game.phase !== 'roll' || cur().type !== 'human' || !vsComputer()) return;
+  if (!RG.usePower('lucky6')) return;
+  RG.toast('🍀 Lucky Six used!'); roll(6);
+});
+RG.onChange(() => { if (game) updateLucky(); });
+
+drawBoard(); renderSetup();
+window.__snakes = { get game(){ return game; } };
+</script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Carrom – RAJGAR Ludo</title>
+<meta name="theme-color" content="#0d2818">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="shared.css">
+<style>
+  #cv{width:var(--bw);height:var(--bw);display:block;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.8);touch-action:none;background:#4a2a12}
+  .cbar{width:var(--bw);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .cnt{font-size:.8rem;font-weight:800;background:var(--panel);border-radius:14px;padding:4px 10px;white-space:nowrap}
+  .slider-wrap{width:var(--bw);display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--ui-line);border-radius:12px;padding:8px 12px}
+  .slider-wrap span{font-size:.75rem;opacity:.8;white-space:nowrap}
+  #place{flex:1;accent-color:var(--accent);height:28px}
+  #place:disabled{opacity:.35}
+</style>
+</head>
+<body class="game">
+  <header class="topbar">
+    <a class="hud-btn" href="./">‹ Games</a>
+    <div class="brand">⚪ CARROM</div>
+    <div class="hud"><span class="chip" data-coins></span><button class="hud-btn" data-sound aria-label="Sound"></button><button id="btn-menu" class="hud-btn">☰</button></div>
+  </header>
+
+  <div class="cbar"><div class="pname off" id="name-1" style="max-width:62%"></div><span class="cnt" id="cnt-1"></span></div>
+  <canvas id="cv" aria-label="Carrom board"></canvas>
+  <div class="cbar"><div class="pname off" id="name-0" style="max-width:62%"></div><span class="cnt" id="cnt-0"></span></div>
+
+  <div class="slider-wrap"><span>Move striker</span><input id="place" type="range" min="0" max="1000" value="500" aria-label="Striker position"></div>
+  <div class="controls" style="padding:6px 12px">
+    <div class="turn"><div id="turn-dot" class="turn-dot"></div>
+      <div><div id="turn-name" class="turn-name">Carrom</div><div id="status" class="status">Choose players to start</div></div></div>
+  </div>
+
+  <div id="setup" class="modal">
+    <div class="sheet">
+      <h1>⚪ CARROM ⚫</h1>
+      <div class="sub">Pocket all 9 of your coins first. Cover the red queen for bonus glory.</div>
+      <button id="btn-continue" class="btn" hidden>Continue current game</button>
+      <div class="label">Opponent</div>
+      <div class="seg" id="seg-opp" style="--n:2"><button data-o="ai">Computer</button><button data-o="human">Friend (same phone)</button></div>
+      <div class="label">Computer level</div>
+      <div class="seg" id="seg-lvl"><button data-l="1">Easy</button><button data-l="2">Medium</button><button data-l="3">Hard</button></div>
+      <button id="btn-start" class="btn primary">Start game</button>
+      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="rules">
+        <summary>How to play</summary>
+        <ul>
+          <li><b>Move the striker</b>: touch it and slide left/right with your finger or mouse (or use the slider).</li>
+          <li><b>Aim &amp; power</b>: pull back from the striker (or anywhere on the board) like a catapult. The <b style="color:#ff6b6b">red line</b> shows which coin you will hit and the arrow shows where that coin will go. Pull further for more power; release to shoot.</li>
+          <li>You play <b>white</b> from the bottom. Pocket one of your own coins to shoot again.</li>
+          <li>Pocketing the striker is a <b>foul</b>: one of your pocketed coins returns to the centre.</li>
+          <li>The <b>red queen</b> must be covered: pocket one of your coins in the same or the next shot, or the queen returns.</li>
+          <li>First to pocket all 9 of their coins wins.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="result" class="modal" hidden>
+    <div class="sheet">
+      <h2 id="result-title">Game over</h2>
+      <div id="ranks"></div>
+      <div id="reward" class="reward"></div>
+      <button id="btn-again" class="btn primary">Play again</button>
+      <a class="btn" href="./">Back to games</a>
+    </div>
+  </div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const sfx = RG.sfx;
+const SPEED = Math.max(1, Math.min(50, Number(new URLSearchParams(location.search).get('speed')) || 1));
+RG.bindHeader();
+RG.mountSoundControls(document.getElementById('sound-ctl'));
+
+/* ---------- geometry (logical board 1000 × 1000) ---------- */
+const F = 60, MAXC = 1000 - F;                 // playing surface edges
+const R = 19, RS = 25, MC = 1, MS = 2.4;         // coin / striker radius & mass
+const POCKET_R = 34;
+const POCKETS = [[F+30,F+30],[MAXC-30,F+30],[F+30,MAXC-30],[MAXC-30,MAXC-30]];
+const BASE = { bottom:820, top:180 }, BX0 = 250, BX1 = 750;
+const FRICTION = 0.983, E_BALL = 0.9, E_WALL = 0.72, MAXV = 46, STOP = 0.15;
+const COLOR_HEX = { w:'#f3ead7', b:'#2a2a2a' };
+
+const cv = $('cv'), ctx = cv.getContext('2d');
+let scale = 1;
+function resize(){
+  const css = cv.getBoundingClientRect().width || 360, dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.width = Math.round(css * dpr); cv.height = cv.width; scale = cv.width / 1000; dirty = true;
+}
+window.addEventListener('resize', resize);
+
+/* ---------- state ---------- */
+let G = null, GEN = 0, dirty = true, aim = null;
+let cfg = (() => { try { return JSON.parse(localStorage.getItem('rajgar-carrom-cfg')) || { opp:'ai', lvl:2 }; } catch(e){ return { opp:'ai', lvl:2 }; } })();
+const saveCfg = () => { try { localStorage.setItem('rajgar-carrom-cfg', JSON.stringify(cfg)); } catch(e){} };
+
+function setupPieces(){
+  const pcs = [], d = 2*R + 1, cx = 500, cy = 500;
+  pcs.push({ kind:'q', x:cx, y:cy });
+  for (let k=0;k<6;k++){ const a = k*Math.PI/3 + Math.PI/6; pcs.push({ kind: k%2 ? 'b' : 'w', x:cx + d*Math.cos(a), y:cy + d*Math.sin(a) }); }
+  for (let k=0;k<6;k++){
+    const a = k*Math.PI/3 + Math.PI/6, a2 = a + Math.PI/6;
+    pcs.push({ kind: k%2 ? 'w' : 'b', x:cx + 2*d*Math.cos(a), y:cy + 2*d*Math.sin(a) });
+    pcs.push({ kind: k%2 ? 'b' : 'w', x:cx + Math.sqrt(3)*d*Math.cos(a2), y:cy + Math.sqrt(3)*d*Math.sin(a2) });
+  }
+  return pcs.map(p => ({ ...p, vx:0, vy:0, r:R, m:MC, on:true }));
+}
+function newGame(){
+  GEN++;
+  const you = { name:RG.P.name, avatar:RG.P.avatar, color:'w', side:'bottom', type:'human', isYou: cfg.opp === 'ai' };
+  const opp = cfg.opp === 'ai' ? { name:'Computer', avatar:'🤖', color:'b', side:'top', type:'ai' }
+                               : { name:'Player 2', avatar:'👤', color:'b', side:'top', type:'human' };
+  if (cfg.opp !== 'ai') you.name = RG.P.name;
+  G = { players:[you, opp], turn:0, phase:'place', over:false, pieces:setupPieces(), pocketed:{ w:0, b:0 },
+        queen:{ owner:null, pendingBy:null }, shot:[], lvl:cfg.lvl, placeX:{ bottom:500, top:500 } };
+  G.striker = { kind:'s', x:500, y:BASE.bottom, vx:0, vy:0, r:RS, m:MS, on:true };
+  closeModals(); $('btn-continue').hidden = false; RG.keepAwake(true);
+  startTurn();
+}
+const cur = () => G.players[G.turn];
+const others = () => G.pieces.filter(p => p.on);
+
+/* ---------- placement ---------- */
+function placeValid(){
+  const s = G.striker;
+  return others().every(p => Math.hypot(p.x - s.x, p.y - s.y) >= p.r + s.r + 1);
+}
+function setStriker(xNorm){
+  const side = cur().side;
+  G.striker.x = BX0 + (BX1 - BX0) * xNorm; G.striker.y = BASE[side];
+  G.striker.vx = G.striker.vy = 0; G.striker.on = true;
+  G.placeX[side] = xNorm * 1000; dirty = true;
+}
+$('place').addEventListener('input', e => {
+  if (!G || G.phase !== 'place' || cur().type !== 'human') return;
+  setStriker(+e.target.value / 1000);
+  setStatus(placeValid() ? 'Pull back to aim · release to shoot' : 'Striker is touching a coin — slide it away');
+});
+
+/* ---------- turn flow ---------- */
+function startTurn(){
+  const gen = GEN, p = cur();
+  G.phase = 'place'; G.shot = []; aim = null;
+  const side = p.side;
+  $('place').value = G.placeX[side];
+  setStriker(G.placeX[side] / 1000);
+  if (!placeValid()) for (const t of [500,400,600,300,700,200,800,100,900,0,1000]){ setStriker(t/1000); if (placeValid()) break; }
+  $('place').value = G.placeX[side];
+  updateHUD();
+  if (p.type === 'ai'){
+    $('place').disabled = true; setStatus('Computer is aiming…');
+    (async () => {
+      await RG.sleep(500 / SPEED);
+      while (!$('setup').hidden){ await RG.sleep(300); if (gen !== GEN) return; }
+      if (gen !== GEN) return;
+      const plan = planAI();
+      // glide the striker to its spot, show the aim, then shoot
+      const fromX = G.striker.x, steps = 12;
+      for (let k=1;k<=steps;k++){ G.striker.x = fromX + (plan.sx - fromX)*k/steps; dirty = true; await RG.sleep(25 / SPEED); if (gen !== GEN) return; }
+      aim = { dx:plan.dx, dy:plan.dy, power:plan.v/MAXV }; dirty = true;
+      await RG.sleep(650 / SPEED); if (gen !== GEN) return;
+      shoot(plan.dx, plan.dy, plan.v);
+    })();
+  } else {
+    $('place').disabled = false;
+    setStatus(placeValid() ? 'Slide the striker · pull back to aim & shoot' : 'Slide the striker off the coins');
+  }
+}
+function shoot(dx, dy, v){
+  const L = Math.hypot(dx, dy) || 1;
+  G.striker.vx = dx / L * v; G.striker.vy = dy / L * v;
+  G.phase = 'moving'; aim = null; $('place').disabled = true;
+  sfx.hit(v / MAXV); setStatus('…');
+}
+
+/* ---------- physics ---------- */
+let lastHit = 0;
+function physicsFrame(){
+  const all = [...others(), G.striker].filter(p => p.on);
+  const SUB = 6;
+  for (let s=0;s<SUB;s++){
+    for (const p of all){ if (!p.on) continue; p.x += p.vx / SUB; p.y += p.vy / SUB;
+      if (p.x - p.r < F){ p.x = F + p.r; p.vx = -p.vx * E_WALL; }
+      if (p.x + p.r > MAXC){ p.x = MAXC - p.r; p.vx = -p.vx * E_WALL; }
+      if (p.y - p.r < F){ p.y = F + p.r; p.vy = -p.vy * E_WALL; }
+      if (p.y + p.r > MAXC){ p.y = MAXC - p.r; p.vy = -p.vy * E_WALL; }
+    }
+    for (let i=0;i<all.length;i++){
+      const a = all[i]; if (!a.on) continue;
+      for (let j=i+1;j<all.length;j++){
+        const b = all[j]; if (!b.on) continue;
+        const dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy), min = a.r + b.r;
+        if (d >= min || d === 0) continue;
+        const nx = dx/d, ny = dy/d, overlap = min - d, im = 1/a.m + 1/b.m;
+        a.x += nx * overlap * (1/a.m)/im; a.y += ny * overlap * (1/a.m)/im;
+        b.x -= nx * overlap * (1/b.m)/im; b.y -= ny * overlap * (1/b.m)/im;
+        const vrel = (a.vx - b.vx)*nx + (a.vy - b.vy)*ny;
+        if (vrel >= 0) continue;
+        const J = -(1 + E_BALL) * vrel / im;
+        a.vx += J/a.m*nx; a.vy += J/a.m*ny; b.vx -= J/b.m*nx; b.vy -= J/b.m*ny;
+        const now = performance.now();
+        if (-vrel > 1.5 && now - lastHit > 40){ lastHit = now; sfx.hit(-vrel / 25); }
+      }
+    }
+    for (const p of all){
+      if (!p.on) continue;
+      for (const [px,py] of POCKETS){
+        if (Math.hypot(p.x - px, p.y - py) < POCKET_R - p.r*.3){
+          p.on = false; p.vx = p.vy = 0; G.shot.push(p.kind); sfx.pocket(); RG.vibrate(40); break;
+        }
+      }
+    }
+  }
+  let moving = false;
+  for (const p of all){
+    if (!p.on) continue;
+    p.vx *= FRICTION; p.vy *= FRICTION;
+    const sp = Math.hypot(p.vx, p.vy);
+    if (sp < 1.2){ p.vx *= .92; p.vy *= .92; }          // slow pieces settle quickly instead of crawling
+    if (sp < STOP){ p.vx = p.vy = 0; } else moving = true;
+  }
+  return moving;
+}
+
+function freeSpot(){
+  for (let rad=0; rad<300; rad+=2*R+2){
+    const n = rad ? Math.floor(2*Math.PI*rad/(2*R+2)) : 1;
+    for (let k=0;k<n;k++){
+      const a = k/n*2*Math.PI, x = 500 + rad*Math.cos(a), y = 500 + rad*Math.sin(a);
+      if (others().every(p => Math.hypot(p.x - x, p.y - y) >= p.r + R + 1)) return [x, y];
+    }
+  }
+  return [500, 500];
+}
+function returnPiece(kind){
+  const p = G.pieces.find(q => !q.on && q.kind === kind); if (!p) return;
+  const [x, y] = freeSpot(); Object.assign(p, { x, y, vx:0, vy:0, on:true });
+}
+
+function resolveShot(){
+  const me = G.turn, my = cur().color, opp = my === 'w' ? 'b' : 'w', name = cur().name;
+  const foul = G.shot.includes('s');
+  const own = G.shot.filter(k => k === my).length, theirs = G.shot.filter(k => k === opp).length;
+  const queenIn = G.shot.includes('q');
+  G.pocketed[my] += own; G.pocketed[opp] += theirs;
+  let again = false;
+  if (foul){
+    if (G.pocketed[my] > 0){ G.pocketed[my]--; returnPiece(my); }
+    if (queenIn) returnPiece('q');
+    if (G.queen.pendingBy === me){ returnPiece('q'); G.queen.pendingBy = null; }
+    RG.toast(`Foul! ${name} pocketed the striker`); sfx.error();
+  } else {
+    if (queenIn){
+      if (own > 0){ G.queen.owner = me; G.queen.pendingBy = null; RG.toast(`${name} pocketed & covered the Queen! 👑`); sfx.home(); }
+      else { G.queen.pendingBy = me; RG.toast('Queen pocketed — cover it with your next coin!'); }
+    } else if (G.queen.pendingBy === me){
+      if (own > 0){ G.queen.owner = me; RG.toast(`Queen covered by ${name}! 👑`); sfx.home(); }
+      else { returnPiece('q'); RG.toast('Queen not covered — back to the centre'); }
+      G.queen.pendingBy = null;
+    } else if (own > 0) RG.toast(own > 1 ? `${own} coins in! Shoot again` : 'Nice! Shoot again');
+    again = own > 0 || queenIn;
+  }
+  G.striker.on = true;
+  updateHUD();
+  if (G.pocketed[my] >= 9) return gameOver(me);
+  if (G.pocketed[opp] >= 9) return gameOver(1 - me);
+  if (!again) G.turn = 1 - G.turn;
+  startTurn();
+}
+
+function gameOver(wi){
+  G.over = true; G.phase = 'over'; RG.keepAwake(false);
+  $('btn-continue').hidden = true; $('place').disabled = true;
+  const w = G.players[wi], l = G.players[1 - wi];
+  sfx.win(); RG.vibrate([80,60,80]);
+  $('result-title').textContent = w.isYou ? '🎉 You win!' : `🏆 ${w.name} wins!`;
+  const row = (p, i, m) => `<div class="rank"><span class="m">${m}</span><span class="dot" style="background:${COLOR_HEX[p.color]};border:1px solid #888"></span><span>${p.avatar} ${p.name} · ${G.pocketed[p.color]}/9${G.queen.owner === i ? ' · 👑' : ''}</span></div>`;
+  $('ranks').innerHTML = row(w, wi, '🥇') + row(l, 1 - wi, '🥈');
+  let reward = '';
+  if (cfg.opp === 'ai'){
+    const won = w.type === 'human';
+    RG.recordGame('carrom', won);
+    const amt = RG.winCoins(won ? 40 + 10*G.lvl : 5);
+    reward = `+${amt} 🪙 coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
+    setTimeout(() => sfx.coin(), 600);
+  }
+  $('reward').textContent = reward;
+  setTimeout(() => { $('result').hidden = false; }, 700);
+  setStatus('Game over');
+}
+
+/* ---------- computer opponent ---------- */
+function segClear(ax, ay, bx, by, rad, skip){
+  const dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy || 1;
+  for (const p of others()){
+    if (skip.includes(p)) continue;
+    let t = ((p.x - ax)*dx + (p.y - ay)*dy) / L2; t = Math.max(0, Math.min(1, t));
+    if (Math.hypot(ax + dx*t - p.x, ay + dy*t - p.y) < rad + p.r) return false;
+  }
+  return true;
+}
+function planAI(){
+  const me = cur(), y = BASE[me.side], decel = 1 - FRICTION;
+  const targets = others().filter(p => p.kind === me.color || p.kind === 'q');
+  let best = null;
+  for (let xi=0; xi<=24; xi++){
+    const sx = BX0 + (BX1 - BX0) * xi / 24;
+    if (!others().every(p => Math.hypot(p.x - sx, p.y - y) >= p.r + RS + 1)) continue;
+    for (const t of targets) for (const [px,py] of POCKETS){
+      const dpx = px - t.x, dpy = py - t.y, Dp = Math.hypot(dpx, dpy), ux = dpx/Dp, uy = dpy/Dp;
+      const gx = t.x - ux*(R + RS), gy = t.y - uy*(R + RS);
+      if (gx < F + RS || gx > MAXC - RS || gy < F + RS || gy > MAXC - RS) continue;
+      const wx = gx - sx, wy = gy - y, Dw = Math.hypot(wx, wy);
+      if (Dw < 5) continue;
+      const cos = (wx*ux + wy*uy) / Dw;
+      if (cos < .35) continue;
+      if (!segClear(sx, y, gx, gy, RS, [t])) continue;
+      if (!segClear(t.x, t.y, px, py, R, [t])) continue;
+      const vCoin = Dp * decel * 1.35 + 1.5;
+      const vContact = vCoin / (cos * (1 + E_BALL) * MS / (MS + MC));
+      const v = vContact + Dw * decel * 1.1;
+      if (v > MAXV) continue;
+      const score = cos*3 - Dp/600 - Dw/1400 + (t.kind === 'q' && G.pocketed[me.color] > 0 ? .6 : 0) - (t.kind === 'q' ? .3 : 0);
+      if (!best || score > best.score) best = { sx, dx:wx, dy:wy, v, score };
+    }
+  }
+  if (!best){
+    // no clean shot: hit the nearest own coin firmly to scatter
+    const sx = 500, mine = others().filter(p => p.kind === me.color);
+    let tgt = mine.sort((a,b) => Math.hypot(a.x - sx, a.y - y) - Math.hypot(b.x - sx, b.y - y))[0] || others()[0];
+    let fx = sx;
+    for (const t of [500,400,600,300,700,250,750]){ if (others().every(p => Math.hypot(p.x - t, p.y - y) >= p.r + RS + 1)){ fx = t; break; } }
+    best = { sx:fx, dx:(tgt ? tgt.x : 500) - fx, dy:(tgt ? tgt.y : 500) - y, v:30 };
+  }
+  // human-like error by level
+  const err = [0, .085, .04, .018][G.lvl];
+  if (G.lvl === 1 && Math.random() < .25) best.v *= .6;          // Easy sometimes under-hits
+  const a = Math.atan2(best.dy, best.dx) + (Math.random()*2 - 1) * err;
+  const pw = Math.min(MAXV, best.v * (1 + (Math.random()*2 - 1) * err * 2));
+  return { sx:best.sx, dx:Math.cos(a), dy:Math.sin(a), v:pw };
+}
+
+/* ---------- aiming input ---------- */
+/* Touch / mouse on the board:
+   • press on the striker and slide sideways  → moves the striker along your baseline
+   • press on the striker and pull back       → aim (opposite direction) + power (pull distance)
+   • press anywhere else and pull back        → same aiming, catapult style */
+let drag = null;
+const PULL_FULL = 240;                                   // pull distance (board units) for 100 % power
+function toBoard(e){ const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 1000, (e.clientY - r.top) / r.height * 1000]; }
+function moveStrikerTo(x){
+  const n = Math.max(0, Math.min(1, (x - BX0) / (BX1 - BX0)));
+  setStriker(n); $('place').value = Math.round(n * 1000);
+  setStatus(placeValid() ? 'Pull back to aim · release to shoot' : 'Striker is touching a coin — slide it away');
+}
+cv.addEventListener('pointerdown', e => {
+  if (!G || G.phase !== 'place' || cur().type !== 'human') return;
+  e.preventDefault(); cv.setPointerCapture(e.pointerId);
+  const [x, y] = toBoard(e), s = G.striker;
+  const onStriker = Math.hypot(x - s.x, y - s.y) < RS * 2.4;
+  drag = { mode: onStriker ? 'pending' : 'aim', start:[x, y], offX: s.x - x };
+  if (!onStriker){
+    if (!placeValid()){ RG.toast('Slide the striker off the coins first'); drag = null; return; }
+    aim = { dx:0, dy:0, power:0 };
+  }
+  dirty = true;
+});
+cv.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const [x, y] = toBoard(e), dx = drag.start[0] - x, dy = drag.start[1] - y;
+  if (drag.mode === 'pending' && Math.hypot(dx, dy) > 14){
+    drag.mode = Math.abs(dx) > Math.abs(dy) * 1.4 ? 'move' : 'aim';
+    if (drag.mode === 'aim' && !placeValid()){ RG.toast('Slide the striker off the coins first'); drag = null; return; }
+  }
+  if (drag.mode === 'move'){ moveStrikerTo(x + drag.offX); aim = null; }
+  else if (drag.mode === 'aim'){
+    aim = { dx, dy, power:Math.min(1, Math.hypot(dx, dy) / PULL_FULL) };
+    setStatus(`Power ${Math.round(aim.power * 100)}% · release to shoot`);
+  }
+  dirty = true;
+});
+function endDrag(){
+  if (!drag) return;
+  const mode = drag.mode, a = aim; drag = null;
+  if (mode === 'aim' && a && a.power > .05) return shoot(a.dx, a.dy, a.power * MAXV);
+  aim = null; dirty = true;
+  if (mode !== 'move' && G && G.phase === 'place') setStatus('Slide the striker · pull back to shoot');
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', () => { drag = null; aim = null; dirty = true; });
+
+/* ---------- drawing ---------- */
+function drawBoard(){
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  let g = ctx.createLinearGradient(0, 0, 1000, 1000); g.addColorStop(0,'#5b3416'); g.addColorStop(.5,'#3d220d'); g.addColorStop(1,'#5b3416');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 1000, 1000);
+  g = ctx.createRadialGradient(500, 450, 100, 500, 500, 650); g.addColorStop(0,'#f6dcae'); g.addColorStop(1,'#dcae6c');
+  ctx.fillStyle = g; ctx.fillRect(F, F, MAXC - F, MAXC - F);
+  ctx.strokeStyle = 'rgba(60,30,10,.55)'; ctx.lineWidth = 3; ctx.strokeRect(F, F, MAXC - F, MAXC - F);
+  // baselines on all four sides
+  for (let k=0;k<4;k++){
+    ctx.save(); ctx.translate(500, 500); ctx.rotate(k*Math.PI/2); ctx.translate(-500, -500);
+    ctx.strokeStyle = '#3b2210'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(BX0, 805); ctx.lineTo(BX1, 805); ctx.moveTo(BX0, 835); ctx.lineTo(BX1, 835); ctx.stroke();
+    for (const x of [BX0, BX1]){ ctx.beginPath(); ctx.arc(x, 820, 15, 0, 7); ctx.fillStyle = '#c62828'; ctx.fill(); ctx.stroke(); }
+    // corner arrow
+    ctx.beginPath(); ctx.moveTo(F + 95, MAXC - 95); ctx.lineTo(300, 700); ctx.stroke();
+    ctx.beginPath(); ctx.arc(300, 700, 16, Math.PI*.25 - 1.6, Math.PI*.25 + 1.6); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.strokeStyle = '#3b2210'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(500, 500, 110, 0, 7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(500, 500, 28, 0, 7); ctx.strokeStyle = '#c62828'; ctx.stroke();
+  for (const [px,py] of POCKETS){
+    g = ctx.createRadialGradient(px, py, 4, px, py, POCKET_R); g.addColorStop(0,'#000'); g.addColorStop(1,'#2a1a0e');
+    ctx.beginPath(); ctx.arc(px, py, POCKET_R, 0, 7); ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#d4a056'; ctx.stroke();
+  }
+}
+function drawPiece(p, ring){
+  ctx.save();
+  ctx.beginPath(); ctx.arc(p.x + 2.5, p.y + 3.5, p.r, 0, 7); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fill();
+  let g;
+  if (p.kind === 'w'){ g = ctx.createRadialGradient(p.x - 6, p.y - 7, 2, p.x, p.y, p.r); g.addColorStop(0,'#fffef8'); g.addColorStop(1,'#d8cdb4'); }
+  else if (p.kind === 'b'){ g = ctx.createRadialGradient(p.x - 6, p.y - 7, 2, p.x, p.y, p.r); g.addColorStop(0,'#666'); g.addColorStop(1,'#111'); }
+  else if (p.kind === 'q'){ g = ctx.createRadialGradient(p.x - 6, p.y - 7, 2, p.x, p.y, p.r); g.addColorStop(0,'#ff8a8a'); g.addColorStop(1,'#a50d1a'); }
+  else { g = ctx.createRadialGradient(p.x - 8, p.y - 9, 3, p.x, p.y, p.r); g.addColorStop(0,'#fffbe9'); g.addColorStop(1,'#e6cf8f'); }
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(p.x, p.y, p.r * .62, 0, 7);
+  ctx.strokeStyle = p.kind === 'b' ? 'rgba(255,255,255,.25)' : 'rgba(0,0,0,.18)'; ctx.stroke();
+  if (p.kind === 's'){
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * .62, 0, 7); ctx.lineWidth = 4; ctx.strokeStyle = ring || '#c8961e'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 7); ctx.fillStyle = ring || '#c8961e'; ctx.fill();
+  }
+  ctx.restore();
+}
+/* Aim guide: red line from striker to the first coin it will strike (ghost striker at contact),
+   then a line showing where that coin will travel. If no coin is in the way, the red line runs to the
+   wall and shows the bounce. Power is a ring around the striker plus the pull-back band behind it. */
+function arrow(x1, y1, x2, y2, col, w){
+  const L = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / L, uy = (y2 - y1) / L;
+  ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - ux*w, y2 - uy*w); ctx.stroke();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - ux*w*3.2 - uy*w*1.8, y2 - uy*w*3.2 + ux*w*1.8); ctx.lineTo(x2 - ux*w*3.2 + uy*w*1.8, y2 - uy*w*3.2 - ux*w*1.8); ctx.fill();
+}
+function drawAim(){
+  if (!aim || !G || G.phase !== 'place' || aim.power <= 0) return;
+  const s = G.striker, L = Math.hypot(aim.dx, aim.dy) || 1, ux = aim.dx / L, uy = aim.dy / L, pw = aim.power;
+  let tw = Infinity, wallX = false;
+  if (ux > 0){ const t = (MAXC - RS - s.x) / ux; if (t < tw){ tw = t; wallX = true; } }
+  if (ux < 0){ const t = (F + RS - s.x) / ux; if (t < tw){ tw = t; wallX = true; } }
+  if (uy > 0){ const t = (MAXC - RS - s.y) / uy; if (t < tw){ tw = t; wallX = false; } }
+  if (uy < 0){ const t = (F + RS - s.y) / uy; if (t < tw){ tw = t; wallX = false; } }
+  let hit = null, th = Infinity;
+  for (const p of others()){
+    const fx = s.x - p.x, fy = s.y - p.y, rr = p.r + RS, b = fx*ux + fy*uy, c = fx*fx + fy*fy - rr*rr, disc = b*b - c;
+    if (disc < 0) continue;
+    const t = -b - Math.sqrt(disc);
+    if (t > 0 && t < th){ th = t; hit = p; }
+  }
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // pull-back band behind the striker
+  const back = 30 + pw * 120;
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 14;
+  ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - ux*back, s.y - uy*back); ctx.stroke();
+  ctx.strokeStyle = `hsl(${120 - pw*120},85%,48%)`; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.moveTo(s.x - ux*RS, s.y - uy*RS); ctx.lineTo(s.x - ux*back, s.y - uy*back); ctx.stroke();
+  const RED = '#ff2d2d';
+  if (hit && th < tw){
+    const cx = s.x + ux*th, cy = s.y + uy*th;
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 6;
+    ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(cx, cy); ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.setLineDash([7, 6]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.95)';
+    ctx.beginPath(); ctx.arc(cx, cy, RS, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    // target coin highlight + its predicted path
+    ctx.lineWidth = 4; ctx.strokeStyle = RED; ctx.beginPath(); ctx.arc(hit.x, hit.y, hit.r + 5, 0, 7); ctx.stroke();
+    const nx = (hit.x - cx) / (hit.r + RS), ny = (hit.y - cy) / (hit.r + RS);
+    const cos = Math.max(0, nx*ux + ny*uy), len = 70 + pw * 260 * (.35 + .65*cos);
+    const col = hit.kind === 'b' ? '#111' : hit.kind === 'q' ? '#ff6b6b' : '#ffffff';
+    ctx.lineWidth = 9; ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.moveTo(hit.x + nx*hit.r, hit.y + ny*hit.r); ctx.lineTo(hit.x + nx*len, hit.y + ny*len); ctx.stroke();
+    arrow(hit.x + nx*hit.r, hit.y + ny*hit.r, hit.x + nx*len, hit.y + ny*len, col, 5);
+  } else {
+    const wx = s.x + ux*tw, wy = s.y + uy*tw;
+    ctx.strokeStyle = RED; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(wx, wy); ctx.stroke();
+    const rx = wallX ? -ux : ux, ry = wallX ? uy : -uy;
+    ctx.setLineDash([12, 10]); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,45,45,.7)';
+    ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + rx*200, wy + ry*200); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // power ring
+  ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.arc(s.x, s.y, RS + 11, 0, 7); ctx.stroke();
+  ctx.strokeStyle = `hsl(${120 - pw*120},85%,48%)`;
+  ctx.beginPath(); ctx.arc(s.x, s.y, RS + 11, -Math.PI/2, -Math.PI/2 + pw * Math.PI * 2); ctx.stroke();
+  ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center'; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.fillStyle = '#fff';
+  const tx = s.x - ux*(back + 34), ty = s.y - uy*(back + 34) + 10;
+  ctx.strokeText(Math.round(pw*100) + '%', tx, ty); ctx.fillText(Math.round(pw*100) + '%', tx, ty);
+  ctx.restore();
+}
+function draw(){
+  drawBoard();
+  if (!G) return;
+  for (const p of others()) drawPiece(p);
+  if (G.striker.on && !G.over){
+    const bad = G.phase === 'place' && !placeValid();
+    drawPiece(G.striker, bad ? '#e53935' : (cur().color === 'w' ? '#c8961e' : '#333'));
+  }
+  drawAim();
+}
+function loop(){
+  if (G && G.phase === 'moving'){
+    let moving = true;
+    for (let k=0; k<SPEED && moving; k++) moving = physicsFrame();
+    dirty = true;
+    if (!moving){ G.phase = 'resolving'; setTimeout(resolveShot, 200 / SPEED); }
+  }
+  if (dirty){ draw(); dirty = false; }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- HUD ---------- */
+const setStatus = m => { $('status').textContent = m; };
+function updateHUD(){
+  [0,1].forEach(i => {
+    const p = G.players[i], el = $('name-' + i), c = p.color === 'w' ? '#f3ead7' : '#555';
+    el.classList.remove('off'); el.style.setProperty('--c', c);
+    el.innerHTML = `<span class="av">${p.avatar}</span><span>${p.name} <small>${p.color === 'w' ? 'White' : 'Black'}</small></span>`;
+    el.classList.toggle('active', !G.over && G.turn === i);
+    $('cnt-' + i).textContent = `${p.color === 'w' ? '⚪' : '⚫'} ${G.pocketed[p.color]}/9${G.queen.owner === i ? ' 👑' : G.queen.pendingBy === i ? ' (👑?)' : ''}`;
+  });
+  const p = cur();
+  $('turn-dot').style.background = p.color === 'w' ? '#f3ead7' : '#222';
+  $('turn-dot').style.boxShadow = '0 0 10px var(--accent)';
+  $('turn-name').textContent = p.type === 'ai' ? 'Computer’s turn' : (p.isYou ? 'Your turn' : `${p.name}’s turn`);
+}
+
+/* ---------- setup ---------- */
+function renderSetup(){
+  document.querySelectorAll('#seg-opp button').forEach(b => b.classList.toggle('on', b.dataset.o === cfg.opp));
+  document.querySelectorAll('#seg-lvl button').forEach(b => { b.classList.toggle('on', +b.dataset.l === cfg.lvl); b.disabled = cfg.opp !== 'ai'; b.style.opacity = cfg.opp === 'ai' ? 1 : .4; });
+}
+$('seg-opp').addEventListener('click', e => { if (!e.target.dataset.o) return; cfg.opp = e.target.dataset.o; saveCfg(); renderSetup(); });
+$('seg-lvl').addEventListener('click', e => { if (!e.target.dataset.l) return; cfg.lvl = +e.target.dataset.l; saveCfg(); renderSetup(); });
+$('btn-start').addEventListener('click', newGame);
+$('btn-again').addEventListener('click', newGame);
+$('btn-continue').addEventListener('click', closeModals);
+$('btn-menu').addEventListener('click', () => { renderSetup(); $('result').hidden = true; $('setup').hidden = false; });
+function closeModals(){ $('setup').hidden = true; $('result').hidden = true; dirty = true; }
+
+renderSetup(); resize(); requestAnimationFrame(loop);
+window.__carrom = { get G(){ return G; }, planAI, shoot };
+</script>
+</body>
+</html>
