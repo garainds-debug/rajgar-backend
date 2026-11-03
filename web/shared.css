@@ -33,7 +33,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{min-height:100%}
 body{
   background:var(--fx), radial-gradient(120% 80% at 50% 0%, var(--bg1) 0%, var(--bg2) 55%, var(--bg3) 100%);
-  background-color:var(--bg2); background-attachment:fixed;
+  background-color:var(--bg2);
   font:500 14px/1.35 Figtree,system-ui,Roboto,'Segoe UI',sans-serif; color:#fff;
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
   overscroll-behavior:none;
@@ -43,7 +43,7 @@ button{cursor:pointer}
 a{color:inherit;text-decoration:none}
 img{max-width:100%}
 body > *{animation:enter .28s ease-out both}
-@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes enter{from{transform:translateY(6px)}to{transform:none}}
 @media (prefers-reduced-motion:reduce){ body > *, .sheet, .modal{animation:none!important} }
 
 body.game{
@@ -79,7 +79,7 @@ button, a.btn, .press{transition:transform .12s ease, background-color .2s, opac
 .pname small{opacity:.7;font-weight:600}
 
 /* ---------- control dock ---------- */
-.controls{width:var(--bw);display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(0,0,0,.30);padding:10px 12px;border-radius:22px;border:1px solid var(--stroke);flex:none;backdrop-filter:blur(8px)}
+.controls{width:var(--bw);display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(0,0,0,.34);padding:10px 12px;border-radius:22px;border:1px solid var(--stroke);flex:none}
 .turn{display:flex;align-items:center;gap:10px;min-width:0}
 .turn-dot{width:14px;height:14px;border-radius:50%;flex:none;transition:all .3s;box-shadow:0 0 0 4px rgba(255,255,255,.08)}
 .turn-name{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -144,14 +144,14 @@ button, a.btn, .press{transition:transform .12s ease, background-color .2s, opac
 /* ---------- bottom sheets ---------- */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:50;animation:fade .18s ease-out}
 .modal[hidden]{display:none}
-@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes fade{from{background-color:rgba(0,0,0,0)}to{background-color:rgba(0,0,0,.55)}}
 .sheet{width:100%;max-width:520px;max-height:90vh;max-height:90dvh;overflow:auto;overscroll-behavior:contain;
   background:linear-gradient(180deg,var(--bg1) 0%,var(--bg2) 40%,var(--bg3) 100%);
   border:1px solid var(--stroke);border-bottom:0;border-radius:26px 26px 0 0;
   padding:8px 18px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.5);
   animation:sheetUp .28s cubic-bezier(.2,.8,.2,1);position:relative}
 .sheet::before{content:'';display:block;width:42px;height:4px;border-radius:2px;background:rgba(255,255,255,.25);margin:0 auto 14px}
-@keyframes sheetUp{from{transform:translateY(60px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes sheetUp{from{transform:translateY(60px)}to{transform:none}}
 .sheet h1{font-size:22px;font-weight:900;letter-spacing:.6px;margin-bottom:2px}
 .sheet h2{font-size:19px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .sheet h2 .ic{color:var(--accent)}
