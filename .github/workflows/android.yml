@@ -55,7 +55,8 @@ jobs:
           gradle -p android --no-daemon assembleDebug assembleRelease bundleRelease 2>&1 | tee out/build.log
       - name: Report compile errors
         if: failure()
-        run: grep -E "error:|e: |FAILURE|What went wrong" -A3 out/build.log | head -40 | sed 's/^/::error::/' || true
+        run: |
+          grep -E "error:|^e: |FAILURE|What went wrong" -A3 out/build.log | head -40 | sed 's/^/::error::/' || true
 
       - name: Collect outputs
         run: |
