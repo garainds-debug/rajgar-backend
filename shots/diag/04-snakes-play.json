@@ -1,0 +1,24 @@
+{
+ "url": "https://appassets.androidplatform.net/assets/www/snakes.html?demo=1",
+ "w": 412,
+ "h": 842,
+ "dpr": 2.625,
+ "sh": 842,
+ "fonts": "loaded",
+ "rm": true,
+ "ua": "Mozilla/5.0 (Linux; Android 15; sdk_gphone64_x86_64 Build/AE3A.240806.043; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.219 Mobile Safari/537.36 RajgarApp/2.3.1",
+ "errs": [],
+ "text": "Snakes\n100\nYellow CPU \u00b7 38\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41\n42\n43\n44\n45\n46\n47\n4",
+ "kids": [
+  "HEADER#.appbar top=4 h=52 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#.names top=64 h=32 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#board.board top=104 h=392 op=1 vis=visible disp=block tr=none anim=none []",
+  "DIV#.names top=504 h=32 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#.controls top=545 h=84 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#setup.modal top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "DIV#result.modal top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "SCRIPT#. top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "SCRIPT#. top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "DIV#.toast top=664 h=58 op=1 vis=visible disp=block tr=matrix(1, 0, 0, 1, -103.048, 0) anim=none [running@0,running@0]"
+ ]
+}

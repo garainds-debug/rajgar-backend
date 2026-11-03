@@ -1,0 +1,24 @@
+{
+ "url": "https://appassets.androidplatform.net/assets/www/carrom.html?demo=1",
+ "w": 412,
+ "h": 842,
+ "dpr": 2.625,
+ "sh": 842,
+ "fonts": "loaded",
+ "rm": true,
+ "ua": "Mozilla/5.0 (Linux; Android 15; sdk_gphone64_x86_64 Build/AE3A.240806.043; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.6367.219 Mobile Safari/537.36 RajgarApp/2.3.1",
+ "errs": [],
+ "text": "Carrom\nMedium\n100\nComputer Black\n\u26ab 0/9\nP\nPlayer White\n\u26aa 0/9\nMove striker\nYour turn\nSlide the striker \u00b7 pull back to aim & shoot",
+ "kids": [
+  "HEADER#.appbar top=4 h=52 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#.cbar top=64 h=32 op=1 vis=visible disp=flex tr=none anim=none []",
+  "CANVAS#cv. top=104 h=392 op=1 vis=visible disp=block tr=none anim=none []",
+  "DIV#.cbar top=504 h=32 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#.slider-wrap top=545 h=44 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#.controls top=597 h=51 op=1 vis=visible disp=flex tr=none anim=none []",
+  "DIV#setup.modal top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "DIV#result.modal top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "SCRIPT#. top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []",
+  "SCRIPT#. top=0 h=0 op=1 vis=visible disp=none tr=none anim=none []"
+ ]
+}
