@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RAJGAR Ludo</title>
+<meta name="description" content="RAJGAR Ludo – Ludo, Snakes & Ladders and Carrom. Play offline vs computer or with friends on one phone.">
+<meta name="theme-color" content="#0d2818">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="shared.css">
+<style>
+  body.hub{min-height:100vh;min-height:100dvh;padding:max(10px, env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom))}
+  .home{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .who{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;padding:0;text-align:left}
+  .av-lg{width:44px;height:44px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+  .av-lg .avl{width:100%;height:100%;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:800 21px/1 'Baloo 2',sans-serif}
+  .av-lg .avi{width:24px;height:24px}
+  .who b{display:block;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who small{font-size:12px;color:var(--text-2)}
+  .wordmark{display:flex;align-items:center;gap:10px;padding:2px 2px 0}
+  .wordmark .ic{width:34px;height:34px;color:var(--accent)}
+  .wordmark .wm{font:800 30px/1 'Baloo 2',system-ui,sans-serif;letter-spacing:1.5px}
+  .wordmark .wm span{color:var(--accent)}
+  .wordmark small{display:block;font-size:12.5px;color:var(--text-2);margin-top:3px}
+  .strip{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px 11px 11px;border-radius:18px;text-align:left}
+  .prem{border:1px solid rgba(246,201,69,.45);background:linear-gradient(100deg,#3A2C05 0%,#5E4707 100%)}
+  .prem .pi{width:40px;height:40px;border-radius:12px;background:#F6C945;display:grid;place-items:center;flex:none;color:#2B1E00}
+  .prem b{color:#FFD866}
+  .strip .tx{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0}
+  .strip b{font-size:15px;font-weight:800}
+  .strip small{font-size:12.5px;color:#E9DDB8}
+  .pill{padding:8px 13px;border-radius:12px;font-weight:800;font-size:13px;white-space:nowrap}
+  .prem .pill{background:#F6C945;color:#2B1E00}
+  .daily{background:var(--surface);border:1px solid var(--stroke)}
+  .daily[hidden]{display:none}
+  .daily .gi{width:38px;height:38px;border-radius:12px;background:rgba(255,152,0,.16);display:grid;place-items:center;flex:none;color:#FFB74D}
+  .daily small{color:var(--text-2)}
+  .daily .pill{background:#FFB74D;color:#2B1600;border:0}
+  .gcard{display:flex;color:inherit;border-radius:22px;border:1px solid var(--stroke)}
+  .hero{align-items:center;gap:12px;min-height:186px;padding:16px 14px 16px 18px;background:color-mix(in srgb,var(--bg1) 85%,#000);box-shadow:0 12px 28px rgba(0,0,0,.35)}
+  .hero .tx{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .eyebrow{font-size:11px;letter-spacing:1.4px;font-weight:800;color:#9FD3AE;text-transform:uppercase}
+  .gtitle{font:800 36px/1 'Baloo 2',system-ui,sans-serif}
+  .meta{font-size:13px;color:var(--text-2)}
+  .stat{font-size:12.5px;font-weight:700;color:var(--accent);min-height:1.2em}
+  .playbtn{margin-top:8px;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 18px 0 13px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:15px}
+  .playbtn .ic{width:18px;height:18px}
+  .mini{flex:none;border-radius:14px;box-shadow:0 8px 18px rgba(0,0,0,.4)}
+  .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .tile{flex-direction:column;gap:10px;padding:12px;background:var(--surface)}
+  .tile svg{width:100%;height:auto;border-radius:12px;display:block}
+  .tile .tt{font:800 19px/1.05 'Baloo 2',system-ui,sans-serif}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:8px 10px calc(10px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg3) 94%,transparent);border-top:1px solid var(--stroke);backdrop-filter:blur(12px)}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;color:var(--text-2);font-size:11.5px;font-weight:700}
+  .tab .tw{width:52px;height:30px;border-radius:15px;display:grid;place-items:center;transition:background .2s}
+  .tab.on{color:var(--accent);font-weight:800}
+  .tab.on .tw{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  /* sheets */
+  .shead{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-right:44px}
+  .shead h2{margin:0;flex:1}
+  .items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+  .item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:var(--surface);border:1px solid var(--stroke);min-width:0}
+  .item.in-use{border:1.5px solid rgba(155,231,163,.55)}
+  .item.prem{background:linear-gradient(160deg,rgba(246,201,69,.16),rgba(255,255,255,.04));border-color:rgba(246,201,69,.45)}
+  .item .iv{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .item .in{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ib2{align-self:flex-start;height:28px;padding:0 11px;border-radius:9px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:12px;white-space:nowrap}
+  .ib2.ghost{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+  .tag{align-self:flex-start;padding:3px 8px;border-radius:7px;font-weight:900;font-size:10.5px;letter-spacing:.6px}
+  .tag.p{background:#F6C945;color:#2B1E00}.tag.f{background:#FF6FAE;color:#3A0020}.tag.ok{background:transparent;color:#9BE7A3;padding:0;font-size:12px;letter-spacing:0}
+  .tprev{width:50px;height:50px;border-radius:13px;flex:none;background:var(--fx),radial-gradient(circle,var(--bg1),var(--bg3));display:grid;place-items:center;border:1px solid var(--accent)}
+  .tprev span{width:22px;height:22px;background:var(--board);border:2px solid var(--frame);border-radius:4px}
+  .aprev{width:50px;height:50px;border-radius:50%;flex:none;background:var(--surface-2);display:grid;place-items:center}
+  .aprev .avl{width:100%;height:100%;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:800 22px/1 'Baloo 2',sans-serif}
+  .aprev .avi{width:26px;height:26px}
+  .bprev{width:50px;height:50px;border-radius:13px;flex:none;background:rgba(46,158,72,.2);display:grid;place-items:center;font:800 24px/1 'Baloo 2',sans-serif;color:#9BE7A3}
+  .note{margin-top:14px;font-size:12.5px;color:var(--text-2);text-align:center}
+  .perks{list-style:none;margin:0 0 4px;padding:4px 14px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--stroke)}
+  .perks li{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px;font-weight:600}
+  .perks li:last-child{border:0}
+  .perks .ic{color:#9BE7A3;stroke-width:2.6}
+  .prem-top{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px}
+  .prem-top .pb{width:64px;height:64px;border-radius:20px;background:#F6C945;display:grid;place-items:center;color:#2B1E00;box-shadow:0 10px 30px rgba(246,201,69,.35)}
+  .prem-top .pb .ic{width:34px;height:34px}
+  .prem-top h2{margin:0;font:800 28px/1.05 'Baloo 2',sans-serif;color:#FFD866}
+  .prem-top p{font-size:13.5px;color:#E9DDB8}
+  .offer-tag{text-align:center;margin:12px 0 0;font-weight:800;font-size:13px;color:#FFB3A0}
+  .offer-tag[hidden]{display:none}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .plan{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 8px 14px;border-radius:18px;border:2px solid var(--stroke);background:rgba(255,255,255,.05)}
+  .plan.on{border-color:#F6C945;background:linear-gradient(160deg,rgba(246,201,69,.22),rgba(255,255,255,.04))}
+  .plan .bv{position:absolute;top:-11px;padding:3px 9px;border-radius:8px;background:#F6C945;color:#2B1E00;font-size:10.5px;font-weight:900;letter-spacing:.6px}
+  .plan b{font-size:13px;font-weight:700;color:var(--text-2)}
+  .plan s{font-size:13px;color:#8FA696;min-height:1.2em}
+  .plan .pr{font:800 34px/1 'Baloo 2',sans-serif;color:#FFD866}
+  .plan small{font-size:12px;color:var(--text-2)}
+  .plan .off{margin-top:6px;padding:3px 8px;border-radius:7px;background:#2E9E48;font-size:11px;font-weight:900;font-style:normal}
+  .plan .off:empty{display:none}
+  .linkbtn{display:block;margin:12px auto 0;background:none;border:0;color:var(--accent);font-weight:700;font-size:13px;text-decoration:underline}
+  .fine{margin-top:6px;text-align:center;font-size:11.5px;color:#8FA696}
+  .msg{min-height:1.3em;text-align:center;margin-top:10px;font-weight:700}
+  .msg.ok{color:#9BE7A3}.msg.err{color:#FF9A9A}
+  .ok-box{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:rgba(46,158,72,.16);border:1px solid rgba(155,231,163,.40);margin-top:12px}
+  .ok-box[hidden]{display:none}
+  .ok-box .ic{color:#9BE7A3}
+  .code-in{font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase}
+  .prow{display:flex;align-items:center;gap:14px;margin-bottom:12px;padding-right:44px}
+  .prow .av-lg{width:64px;height:64px}
+  .prow .av-lg .avl{font-size:30px}
+  .prow .av-lg .avi{width:32px;height:32px}
+  .prow .f{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .prow .f .label{margin:0}
+  .avpick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+  .avpick button{aspect-ratio:1;border-radius:14px;border:1px solid var(--stroke);background:var(--surface);display:grid;place-items:center;padding:0}
+  .avpick button.on{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  .avpick button.lock{opacity:.4}
+  .avpick .avl{font:800 19px/1 'Baloo 2',sans-serif;color:var(--accent)}
+  .avpick .avi{width:22px;height:22px}
+  .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+  .stats div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:16px;background:var(--surface);border:1px solid var(--stroke)}
+  .stats span{font-size:11.5px;color:var(--text-2);font-weight:700}
+  .stats b{font:800 22px/1.1 'Baloo 2',sans-serif}
+  .stats b small{font:700 13px Figtree,system-ui,sans-serif;color:var(--text-2)}
+  .stats em{font-style:normal;font-size:11px;color:#9BE7A3;font-weight:700}
+  .card{margin-top:12px;border-radius:18px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);padding:4px 14px 10px}
+  .card .label:first-child{margin-top:10px}
+  .row{display:flex;align-items:center;justify-content:space-between;min-height:50px;border-top:1px solid rgba(255,255,255,.07);font-weight:700;font-size:14.5px}
+  .switch{position:relative;width:50px;height:30px;border-radius:15px;border:0;background:rgba(255,255,255,.18);padding:0;flex:none}
+  .switch::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .2s}
+  .switch.on{background:var(--accent)}
+  .switch.on::after{left:23px}
+  .navrow{display:flex;align-items:center;gap:12px;min-height:50px;padding:0 14px;margin-top:10px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);font-size:14.5px;font-weight:700;width:100%}
+  .navrow span{flex:1;text-align:left}
+  .navrow .ic{color:var(--text-2);width:20px;height:20px}
+  .ver{margin-top:12px;text-align:center;font-size:11.5px;color:#8FA696}
+</style>
+</head>
+<body class="hub">
+<main class="home">
+  <header class="appbar">
+    <button class="who" data-sheet="m-profile" aria-label="Edit profile">
+      <span class="av-lg" data-avatar></span>
+      <span><b id="p-name"></b><small>Tap to edit profile</small></span>
+    </button>
+    <span data-coins></span>
+  </header>
+
+  <div class="wordmark">
+    <span data-icon="crown"></span>
+    <div><div class="wm"><span>RAJGAR</span> LUDO</div><small>Ludo · Snakes &amp; Ladders · Carrom</small></div>
+  </div>
+
+  <button class="strip prem" data-sheet="m-premium">
+    <span class="pi" data-icon="crown"></span>
+    <span class="tx"><b>RAJGAR Premium</b><small id="prem-status"></small></span>
+    <span class="pill" id="prem-go">Plans</span>
+  </button>
+
+  <div class="strip daily" id="daily" hidden>
+    <span class="gi" data-icon="gift"></span>
+    <span class="tx"><b>Daily bonus</b><small id="daily-sub"></small></span>
+    <button class="pill" id="daily-go">Collect</button>
+  </div>
+
+  <a class="gcard hero" href="ludo.html">
+    <span class="tx">
+      <span class="eyebrow">Classic · Quick</span>
+      <span class="gtitle">Ludo</span>
+      <span class="meta">2–4 players · vs Computer</span>
+      <span class="stat" data-stat="ludo"></span>
+      <span class="playbtn" data-icon="play">Play</span>
+    </span>
+    <svg class="mini" width="146" height="146" viewBox="0 0 15 15" aria-hidden="true">
+      <defs><pattern id="hc" width="1" height="1" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#FFFDF8" stroke="#D3C6AC" stroke-width=".06"/></pattern></defs>
+      <rect width="15" height="15" fill="#FBF7EF"/>
+      <rect x="6" y="0" width="3" height="15" fill="url(#hc)"/><rect x="0" y="6" width="15" height="3" fill="url(#hc)"/>
+      <rect x="7" y="1" width="1" height="5" fill="#F5B800"/><rect x="1" y="7" width="5" height="1" fill="#2E9E48"/><rect x="9" y="7" width="5" height="1" fill="#1E78D2"/><rect x="7" y="9" width="1" height="5" fill="#E53935"/>
+      <rect width="6" height="6" fill="#2E9E48"/><rect x="9" width="6" height="6" fill="#F5B800"/><rect y="9" width="6" height="6" fill="#E53935"/><rect x="9" y="9" width="6" height="6" fill="#1E78D2"/>
+      <rect x="1" y="1" width="4" height="4" rx=".6" fill="#fff"/><rect x="10" y="1" width="4" height="4" rx=".6" fill="#fff"/><rect x="1" y="10" width="4" height="4" rx=".6" fill="#fff"/><rect x="10" y="10" width="4" height="4" rx=".6" fill="#fff"/>
+      <g fill="#2E9E48"><circle cx="2.2" cy="2.2" r=".65"/><circle cx="3.8" cy="2.2" r=".65"/><circle cx="2.2" cy="3.8" r=".65"/><circle cx="3.8" cy="3.8" r=".65"/></g>
+      <g fill="#F5B800"><circle cx="11.2" cy="2.2" r=".65"/><circle cx="12.8" cy="2.2" r=".65"/><circle cx="11.2" cy="3.8" r=".65"/><circle cx="12.8" cy="3.8" r=".65"/></g>
+      <g fill="#E53935"><circle cx="2.2" cy="11.2" r=".65"/><circle cx="3.8" cy="11.2" r=".65"/><circle cx="2.2" cy="12.8" r=".65"/><circle cx="3.8" cy="12.8" r=".65"/></g>
+      <g fill="#1E78D2"><circle cx="11.2" cy="11.2" r=".65"/><circle cx="12.8" cy="11.2" r=".65"/><circle cx="11.2" cy="12.8" r=".65"/><circle cx="12.8" cy="12.8" r=".65"/></g>
+      <polygon points="6,9 9,9 7.5,7.5" fill="#E53935"/><polygon points="6,6 6,9 7.5,7.5" fill="#2E9E48"/><polygon points="6,6 9,6 7.5,7.5" fill="#F5B800"/><polygon points="9,6 9,9 7.5,7.5" fill="#1E78D2"/>
+    </svg>
+  </a>
+
+  <div class="tiles">
+    <a class="gcard tile" href="snakes.html">
+      <svg viewBox="0 0 150 92" aria-hidden="true">
+        <rect width="150" height="92" fill="#FFF3C4"/>
+        <g fill="#C8E6C9"><rect width="30" height="23"/><rect x="60" width="30" height="23"/><rect x="120" width="30" height="23"/><rect x="30" y="23" width="30" height="23"/><rect x="90" y="23" width="30" height="23"/><rect y="46" width="30" height="23"/><rect x="60" y="46" width="30" height="23"/><rect x="120" y="46" width="30" height="23"/><rect x="30" y="69" width="30" height="23"/><rect x="90" y="69" width="30" height="23"/></g>
+        <g stroke="#8D5524" stroke-width="3.5" stroke-linecap="round"><path d="M22 86L52 10M36 90L66 14"/><path d="M27 74l14 4M32 60l14 4M37 46l14 4M42 32l14 4M47 18l14 4" stroke="#C68642" stroke-width="2.6"/></g>
+        <path d="M128 12c-22 6 10 22-14 30s6 24-20 36" fill="none" stroke="#C62828" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="128" cy="12" r="7" fill="#C62828"/><circle cx="130" cy="10" r="1.8" fill="#fff"/>
+      </svg>
+      <span class="tt">Snakes &amp; Ladders</span>
+      <span class="meta">2–4 players</span>
+      <span class="stat" data-stat="snakes"></span>
+    </a>
+    <a class="gcard tile" href="carrom.html">
+      <svg viewBox="0 0 150 92" aria-hidden="true">
+        <rect width="150" height="92" fill="#5B3416"/><rect x="7" y="7" width="136" height="78" rx="3" fill="#EBC88F"/>
+        <g fill="#1B120A"><circle cx="15" cy="15" r="6"/><circle cx="135" cy="15" r="6"/><circle cx="15" cy="77" r="6"/><circle cx="135" cy="77" r="6"/></g>
+        <circle cx="75" cy="46" r="17" fill="none" stroke="#6B3F1C" stroke-width="1.4"/><circle cx="75" cy="46" r="5" fill="#C62828"/>
+        <circle cx="64" cy="46" r="5" fill="#FAF6EC"/><circle cx="86" cy="46" r="5" fill="#2A2A2A"/><circle cx="75" cy="36" r="5" fill="#2A2A2A"/><circle cx="75" cy="56" r="5" fill="#FAF6EC"/>
+        <circle cx="104" cy="70" r="6.5" fill="#F3E3B6" stroke="#C8961E" stroke-width="2"/>
+      </svg>
+      <span class="tt">Carrom</span>
+      <span class="meta">vs Computer · 2 players</span>
+      <span class="stat" data-stat="carrom"></span>
+    </a>
+  </div>
+</main>
+
+<nav class="tabbar" aria-label="Main">
+  <button class="tab on" data-tab="home"><span class="tw" data-icon="home"></span>Home</button>
+  <button class="tab" data-tab="m-shop"><span class="tw" data-icon="shop"></span>Shop</button>
+  <button class="tab" data-tab="m-codes"><span class="tw" data-icon="ticket"></span>Codes</button>
+  <button class="tab" data-tab="m-profile"><span class="tw" data-icon="user"></span>Profile</button>
+</nav>
+
+<!-- Shop -->
+<div id="m-shop" class="modal" hidden><div class="sheet">
+  <button class="close-x" data-close aria-label="Close" data-icon="close"></button>
+  <div class="shead"><span data-icon="shop" style="color:var(--accent)"></span><h2>Shop</h2><span data-coins></span></div>
+  <div class="seg" id="shop-tabs" style="--n:4">
+    <button data-tab="dice" class="on">Dice</button><button data-tab="theme">Themes</button>
+    <button data-tab="avatar">Avatars</button><button data-tab="power">Boosts</button>
+  </div>
+  <div id="shop-grid" class="items"></div>
+  <p class="note">Win against the computer and collect the daily bonus to earn coins.</p>
+</div></div>
+
+<!-- Premium -->
+<div id="m-premium" class="modal" hidden><div class="sheet" style="background:linear-gradient(180deg,#3A2C05 0%,#1A1505 26%,var(--bg2) 52%,var(--bg3) 100%)">
+  <button class="close-x" data-close aria-label="Close" data-icon="close"></button>
+  <div class="prem-top"><span class="pb" data-icon="crown"></span><h2>RAJGAR Premium</h2><p id="prem-sub"></p></div>
+  <ul class="perks" id="perks"></ul>
+  <p id="offer-tag" class="offer-tag" hidden></p>
+  <div class="plans">
+    <button class="plan" data-plan="yearly"><b>1 Year</b><s id="was-yearly"></s><span class="pr" id="price-yearly"></span><small>per year</small><em class="off" id="off-yearly"></em></button>
+    <button class="plan on" data-plan="lifetime"><span class="bv">BEST VALUE</span><b>Lifetime</b><s id="was-lifetime"></s><span class="pr" id="price-lifetime"></span><small>one-time</small><em class="off" id="off-lifetime"></em></button>
+  </div>
+  <button id="buy-go" class="btn primary"></button>
+  <div id="prem-msg" class="msg"></div>
+  <button id="btn-restore" class="linkbtn">Restore purchases</button>
+  <p class="fine">Paid through Google Play. Cancel the yearly plan anytime in Play Store › Subscriptions.</p>
+</div></div>
+
+<!-- Codes -->
+<div id="m-codes" class="modal" hidden><div class="sheet">
+  <button class="close-x" data-close aria-label="Close" data-icon="close"></button>
+  <div class="shead"><span data-icon="ticket" style="color:#FF8FC0"></span><h2>Festival &amp; gift codes</h2></div>
+  <p class="sub">Unlock festival dice, themes and coins</p>
+  <label class="label" for="code-in">Your code</label>
+  <input id="code-in" class="field code-in" autocomplete="off" autocapitalize="characters" maxlength="20" placeholder="e.g. HOLI">
+  <button id="code-go" class="btn primary">Redeem</button>
+  <div id="code-ok" class="ok-box" hidden><span data-icon="info"></span><span id="code-ok-t"></span></div>
+  <div id="code-msg" class="msg"></div>
+  <p class="note">Codes come from GARA shops and festival posts. Each code works once per phone.</p>
+</div></div>
+
+<!-- Profile & settings -->
+<div id="m-profile" class="modal" hidden><div class="sheet">
+  <button class="close-x" data-close aria-label="Close" data-icon="close"></button>
+  <div class="prow">
+    <span class="av-lg" data-avatar></span>
+    <div class="f"><label class="label" for="name-in">Player name</label><input id="name-in" class="field" maxlength="14" autocomplete="off"></div>
+  </div>
+  <div id="avpick" class="avpick"></div>
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <div id="sound-ctl"></div>
+    <div class="row" style="margin-top:10px"><span>Vibration</span><button class="switch" data-pref="vibe" aria-label="Vibration"></button></div>
+    <div class="row"><span>Fast moves</span><button class="switch" data-pref="fast" aria-label="Fast moves"></button></div>
+  </div>
+  <button class="navrow" data-install hidden><span data-icon="install"></span><span>Install app</span></button>
+  <a class="navrow" href="privacy.html"><span data-icon="shield"></span><span>Privacy policy</span><span data-icon="back" style="flex:none;transform:rotate(180deg)"></span></a>
+  <p class="ver">RAJGAR Ludo 2.3 · GARA Industries, Dhanbad</p>
+</div></div>
+
+<script src="shared.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const P = () => RG.P;
+RG.bindHeader();
+
+/* ---------- home ---------- */
+function nextDaily(){
+  const d = new Date(Date.now() - 864e5), y = d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  const day = P().daily.last === y ? Math.min(7, P().daily.streak + 1) : 1;
+  return { day, amt:(20 + day*10) * (RG.isPremium() ? 2 : 1) };
+}
+function paintHome(){
+  $('p-name').textContent = P().name;
+  const pp = P().premium;
+  $('prem-status').textContent = pp.kind === 'lifetime' ? 'Lifetime member — thank you!'
+    : RG.paidPremium() ? `Active till ${new Date(pp.until).toLocaleDateString('en-IN')}`
+    : RG.trialLeft() > 0 ? `Free trial · ${RG.trialLeft()} days left` : 'Unlock premium dice, themes & 2× coins';
+  $('prem-go').textContent = RG.paidPremium() ? 'Active' : 'Plans';
+  const avail = RG.dailyAvailable();
+  $('daily').hidden = !avail;
+  if (avail){ const n = nextDaily(); $('daily-sub').textContent = `Day ${n.day} streak`; $('daily-go').textContent = `Collect +${n.amt}`; }
+  document.querySelectorAll('[data-stat]').forEach(el => {
+    const s = P().stats[el.dataset.stat] || {p:0,w:0};
+    el.textContent = s.p ? `Won ${s.w} of ${s.p}` : '';
+  });
+}
+RG.onChange(paintHome); paintHome();
+$('daily-go').addEventListener('click', () => {
+  const amt = RG.claimDaily();
+  if (amt){ RG.sfx.coin(); RG.vibrate(30); RG.toast(`+${amt} coins · day ${P().daily.streak} streak`); }
+});
+
+/* ---------- sheets & tabs ---------- */
+const RENDER = { 'm-shop':renderShop, 'm-premium':renderPremium, 'm-codes':renderCodes, 'm-profile':renderProfile };
+function setTab(id){ document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === (id || 'home'))); }
+function open(id){
+  document.querySelectorAll('.modal').forEach(m => m.hidden = true);
+  const m = $(id); m.hidden = false; (RENDER[id] || (() => {}))();
+  setTab(['m-shop','m-codes','m-profile'].includes(id) ? id : 'home');
+}
+function closeAll(){ document.querySelectorAll('.modal').forEach(m => m.hidden = true); setTab('home'); }
+document.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => open(b.dataset.sheet)));
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => t.dataset.tab === 'home' ? closeAll() : open(t.dataset.tab)));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeAll));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) closeAll(); }));
+document.querySelectorAll('[data-install]').forEach(b => b.addEventListener('click', RG.install));
+RG.onBack(open => { if (open.length){ closeAll(); return true; } return false; });
+
+/* ---------- shop ---------- */
+let shopTab = 'dice';
+$('shop-tabs').addEventListener('click', e => {
+  const t = e.target.dataset.tab; if (!t) return;
+  shopTab = t; document.querySelectorAll('#shop-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  renderShop();
+});
+const equippedId = kind => kind === 'avatar' ? P().avatar : P().equipped[kind];
+function renderShop(){
+  const kind = shopTab, grid = $('shop-grid'); grid.innerHTML = '';
+  for (const it of RG.CATALOG[kind]){
+    const card = document.createElement('div');
+    const inUse = kind !== 'power' && equippedId(kind) === it.id;
+    card.className = 'item' + (inUse ? ' in-use' : it.premium ? ' prem' : '');
+    let prev;
+    if (kind === 'dice') prev = `<span class="die sm" data-skin="${it.id}"></span>`;
+    else if (kind === 'theme') prev = `<span class="tprev" data-theme="${it.id}"><span></span></span>`;
+    else if (kind === 'avatar') prev = `<span class="aprev">${RG.avatarHTML(it.id, P().name)}</span>`;
+    else prev = `<span class="bprev">6</span>`;
+    let act;
+    if (kind === 'power') act = `<button class="ib2" data-act="buy">${it.price} coins</button>`;
+    else if (inUse) act = `<span class="tag ok">In use</span>`;
+    else if (RG.has(kind, it.id)) act = `<button class="ib2 ghost" data-act="use">Use</button>`;
+    else if (it.premium && it.code) act = `<button class="tag f" data-act="code">FESTIVAL</button>`;
+    else if (it.premium) act = `<button class="tag p" data-act="premium">PREMIUM</button>`;
+    else act = `<button class="ib2" data-act="buy">${it.price} coins</button>`;
+    const sub = kind === 'power' ? `<span style="font-size:11.5px;color:var(--text-2)">You have ${P().power[it.id]||0}</span>` : '';
+    card.innerHTML = prev + `<span class="iv"><span class="in">${it.name}</span>${sub}${act}</span>`;
+    const d = card.querySelector('.die'); if (d){ RG.makeDie(d, it.id); RG.setDie(d, 5); }
+    const btn = card.querySelector('[data-act]');
+    if (btn) btn.addEventListener('click', () => {
+      const a = btn.dataset.act;
+      if (a === 'code') return open('m-codes');
+      if (a === 'premium') return open('m-premium');
+      if (a === 'use'){ RG.equip(kind, it.id); RG.sfx.land(); return renderShop(); }
+      const r = RG.buy(kind, it.id);
+      RG.toast(r.msg);
+      if (r.ok){ RG.sfx.coin(); if (kind !== 'power') RG.equip(kind, it.id); } else RG.sfx.error();
+      renderShop();
+    });
+    grid.appendChild(card);
+  }
+}
+
+/* ---------- premium ---------- */
+let plan = 'lifetime', prices = null;
+const PERKS = ['All premium dice, themes &amp; avatars', '2× coins on every win', '2× daily bonus + 1 free Lucky Six a day', 'Holi &amp; Diwali festival packs included'];
+async function renderPremium(){
+  $('perks').innerHTML = PERKS.map(p => `<li>${RG.icon('check')}${p}</li>`).join('');
+  $('prem-msg').textContent = '';
+  $('prem-sub').textContent = RG.paidPremium() ? (P().premium.kind === 'lifetime' ? 'You own Premium for life' : 'Your Premium is active')
+    : RG.trialLeft() > 0 ? `Free trial · ${RG.trialLeft()} days left` : 'Your free trial has ended';
+  prices = await RG.premiumPrices();
+  for (const k of ['yearly','lifetime']){
+    $('price-' + k).textContent = prices[k].now; $('was-' + k).textContent = prices[k].was; $('off-' + k).textContent = prices[k].off ? prices[k].off + '% OFF' : '';
+  }
+  $('offer-tag').hidden = !prices.offer; $('offer-tag').textContent = `Launch offer · ends ${prices.ends}`;
+  paintPlan();
+}
+function paintPlan(){
+  document.querySelectorAll('[data-plan]').forEach(b => b.classList.toggle('on', b.dataset.plan === plan));
+  $('buy-go').hidden = RG.paidPremium();
+  if (prices) $('buy-go').textContent = `Get ${plan === 'lifetime' ? 'Lifetime' : '1 Year'} · ${prices[plan].now}`;
+}
+document.querySelectorAll('[data-plan]').forEach(b => b.addEventListener('click', () => { plan = b.dataset.plan; paintPlan(); }));
+$('buy-go').addEventListener('click', async () => {
+  const r = await RG.buyPremium(plan);
+  if (r.ok){ RG.sfx.win(); await renderPremium(); }
+  const m = $('prem-msg'); m.textContent = r.msg; m.className = 'msg ' + (r.ok ? 'ok' : 'err');
+});
+$('btn-restore').addEventListener('click', async () => {
+  const r = await RG.restorePurchases();
+  const m = $('prem-msg'); m.textContent = r.msg; m.className = 'msg ' + (r.ok ? 'ok' : 'err');
+});
+
+/* ---------- codes ---------- */
+function renderCodes(){ $('code-msg').textContent = ''; $('code-ok').hidden = true; }
+function redeem(){
+  const r = RG.redeem($('code-in').value);
+  if (r.ok){ $('code-ok').hidden = false; $('code-ok-t').textContent = r.msg; $('code-msg').textContent = ''; RG.sfx.win(); $('code-in').value = ''; }
+  else { $('code-ok').hidden = true; const m = $('code-msg'); m.textContent = r.msg; m.className = 'msg err'; RG.sfx.error(); }
+}
+$('code-go').addEventListener('click', redeem);
+$('code-in').addEventListener('keydown', e => { if (e.key === 'Enter') redeem(); });
+
+/* ---------- profile & settings ---------- */
+RG.mountSoundControls($('sound-ctl'));
+function renderProfile(){
+  $('name-in').value = P().name;
+  $('avpick').innerHTML = RG.CATALOG.avatar.map(a => {
+    const owned = RG.has('avatar', a.id);
+    return `<button data-av="${a.id}" class="${a.id === P().avatar ? 'on' : ''} ${owned ? '' : 'lock'}" aria-label="${a.name} avatar">${RG.avatarHTML(a.id, P().name)}</button>`;
+  }).join('');
+  const names = { ludo:'Ludo', snakes:'Snakes', carrom:'Carrom' };
+  $('stats').innerHTML = Object.keys(names).map(g => {
+    const s = P().stats[g] || {p:0,w:0};
+    return `<div><span>${names[g]}</span><b>${s.w}<small> / ${s.p}</small></b><em>${s.p ? Math.round(100*s.w/s.p) + '% wins' : 'No games yet'}</em></div>`;
+  }).join('');
+  document.querySelectorAll('[data-pref]').forEach(t => t.classList.toggle('on', !!P()[t.dataset.pref]));
+}
+$('avpick').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (!RG.has('avatar', b.dataset.av)){ RG.toast('This avatar comes with Premium'); return; }
+  RG.equip('avatar', b.dataset.av); renderProfile();
+});
+$('name-in').addEventListener('change', () => { RG.setName($('name-in').value); RG.toast('Name saved'); });
+document.querySelectorAll('[data-pref]').forEach(t => t.addEventListener('click', () => {
+  RG.setPref(t.dataset.pref, !P()[t.dataset.pref]); renderProfile();
+  if (t.dataset.pref === 'vibe' && P().vibe) RG.vibrate(60);
+}));
+
+/* deep links used for store screenshots: ?sheet=shop|premium|codes|profile */
+const sheet = new URLSearchParams(location.search).get('sheet');
+if (sheet && $('m-' + sheet)) open('m-' + sheet);
+window.__rg = RG;
+</script>
+</body>
+</html>

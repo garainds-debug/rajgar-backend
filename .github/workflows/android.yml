@@ -1,0 +1,94 @@
+name: Android build
+
+on:
+  push:
+    branches: [app]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RG_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Bundle the game into the app
+        run: |
+          WWW=android/app/src/main/assets/www
+          mkdir -p "$WWW"
+          cp -r web/. "$WWW/"
+          rm -f "$WWW/start.bat" "$WWW/README.md"
+          bash tools/fonts.sh "$WWW/fonts"
+          mkdir -p out && cp -r "$WWW/fonts" out/fonts
+
+      - name: Upload key (only if the repository secrets are set)
+        env:
+          KS: ${{ secrets.RG_KEYSTORE_B64 }}
+          KP: ${{ secrets.RG_KEY_PASS }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KP" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "RG_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+            echo "RG_KEY_PASS=$KP" >> "$GITHUB_ENV"
+            echo "signed=yes" > out/signing.txt
+          else
+            echo "signed=no (add RG_KEYSTORE_B64 and RG_KEY_PASS secrets)" > out/signing.txt
+          fi
+
+      - name: Build APK and AAB
+        run: |
+          set -o pipefail
+          gradle -p android --no-daemon assembleDebug assembleRelease bundleRelease 2>&1 | tee out/build.log
+      - name: Report compile errors
+        if: failure()
+        run: grep -E "error:|e: |FAILURE|What went wrong" -A3 out/build.log | head -40 | sed 's/^/::error::/' || true
+
+      - name: Collect outputs
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk app-debug.apk
+          cp app-debug.apk out/rajgar-ludo-debug.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab out/rajgar-ludo-release.aab
+          ls android/app/build/outputs/apk/release/ && cp android/app/build/outputs/apk/release/*.apk out/ || true
+          ls -la out
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Screenshots on an Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash tools/shots.sh out/shots
+
+      - name: Publish to the builds branch
+        if: always()
+        run: |
+          cd out
+          git init -q -b builds
+          git config user.name "RAJGAR CI"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "Build ${{ github.run_number }} from ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" builds
