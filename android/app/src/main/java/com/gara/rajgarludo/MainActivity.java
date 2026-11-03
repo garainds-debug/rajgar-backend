@@ -117,7 +117,12 @@ public class MainActivity extends ComponentActivity {
         web.setHapticFeedbackEnabled(false);
         web.setOnLongClickListener(v -> true);   // no "copy / select" pop-ups on long press
         web.addJavascriptInterface(new Bridge(), "RGNative");
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onConsoleMessage(android.webkit.ConsoleMessage m) {
+                if (BuildConfig.DEBUG) android.util.Log.i("RGWeb", m.messageLevel() + " " + m.message() + " @" + m.sourceId() + ":" + m.lineNumber());
+                return true;
+            }
+        });
         web.setWebViewClient(new WebViewClientCompat() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {

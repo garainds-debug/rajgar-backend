@@ -1,3 +1,4 @@
+window.__rgErrs=[];addEventListener('error',e=>window.__rgErrs.push(String(e.message)+' @'+(e.filename||'').split('/').pop()+':'+e.lineno));addEventListener('unhandledrejection',e=>window.__rgErrs.push('promise: '+String(e.reason)));
 /* ===== RAJGAR Ludo – shared engine: profile, coins, shop, codes, dice, sound, PWA ===== */
 'use strict';
 const RG = (() => {
