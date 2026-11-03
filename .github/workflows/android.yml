@@ -44,14 +44,21 @@ jobs:
           KS: ${{ secrets.RG_KEYSTORE_B64 }}
           KP: ${{ secrets.RG_KEY_PASS }}
         run: |
-          if [ -n "$KS" ] && [ -n "$KP" ]; then
-            echo "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
-            echo "RG_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-            echo "RG_KEY_PASS=$KP" >> "$GITHUB_ENV"
-            echo "signed=yes" > out/signing.txt
-          else
-            echo "signed=no (add RG_KEYSTORE_B64 and RG_KEY_PASS secrets)" > out/signing.txt
+          KP=$(printf '%s' "$KP" | tr -d ' \r\n\t')
+          if [ -z "$KS" ] || [ -z "$KP" ]; then
+            echo "signed=no (add RG_KEYSTORE_B64 and RG_KEY_PASS secrets)" > out/signing.txt; exit 0
           fi
+          printf '%s' "$KS" | tr -d ' \r\n\t' > "$RUNNER_TEMP/ks.b64"
+          echo "keystore text length: $(wc -c < "$RUNNER_TEMP/ks.b64")" >> out/signing-debug.txt
+          if ! base64 -d "$RUNNER_TEMP/ks.b64" > "$RUNNER_TEMP/upload.jks" 2>>out/signing-debug.txt; then
+            echo "signed=no (RG_KEYSTORE_B64 is not valid base64 - re-paste the whole file)" > out/signing.txt; exit 0
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$KP" -alias rajgar >>out/signing-debug.txt 2>&1; then
+            echo "signed=no (password in RG_KEY_PASS does not open the keystore)" > out/signing.txt; exit 0
+          fi
+          echo "RG_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          echo "RG_KEY_PASS=$KP" >> "$GITHUB_ENV"
+          echo "signed=yes" > out/signing.txt
 
       - name: Build APK and AAB
         run: |
