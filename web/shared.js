@@ -81,16 +81,16 @@ const RG = (() => {
     verifyUrl: '',
     yearly:   { sku:'rajgar_premium_yearly',   label:'1 Year',   offer:4,  regular:9,  mrp:9,  per:'/ year', type:'subscription' },
     lifetime: { sku:'rajgar_premium_lifetime', label:'Lifetime', offer:19, regular:39, mrp:39, per:'once',   type:'onetime' },
-    perks: ['All 👑 premium dice, themes & avatars', '2× coins on every win', '2× daily bonus + 1 free Lucky Six daily', 'Festival dice & themes included'],
+    perks: ['All premium dice, themes & avatars', '2× coins on every win', '2× daily bonus + 1 free Lucky Six daily', 'Festival dice & themes included'],
   };
 
   /* Promo / festival codes. Stored as hashes so they are not readable at a glance.
      (Anyone determined can still find them – never use codes for anything that costs real money.) */
   const CODES = {
-    '2fb8d0sm620': { label:'Holi pack unlocked! 🎨 +100 coins', coins:100, items:['dice:holi','theme:holi'] },        // HOLI
-    '28eehetc72t': { label:'Diwali pack unlocked! 🪔 +100 coins', coins:100, items:['dice:diwali','theme:diwali'] }, // DIWALI
-    '22vnn55ku42': { label:'+500 coins added! 🪙', coins:500 },                                                       // RAJGAR500
-    '77x4egtrbm':  { label:'VIP: all premium items unlocked! 👑', all:true, power:{ lucky6:5 } },                     // GARAVIP
+    '2fb8d0sm620': { label:'Holi pack unlocked! +100 coins', coins:100, items:['dice:holi','theme:holi'] },        // HOLI
+    '28eehetc72t': { label:'Diwali pack unlocked! +100 coins', coins:100, items:['dice:diwali','theme:diwali'] }, // DIWALI
+    '22vnn55ku42': { label:'+500 coins added!', coins:500 },                                                       // RAJGAR500
+    '77x4egtrbm':  { label:'VIP: all premium items unlocked!', all:true, power:{ lucky6:5 } },                     // GARAVIP
   };
   function hash(str, seed=7){
     let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
@@ -265,7 +265,7 @@ const RG = (() => {
     if (nativeBilling()){
       const sku = PREMIUM[plan].sku;
       const r = await nativeCall('billingBuy', sku);
-      if (r.ok){ grant(r.sku || sku); return { ok:true, msg:'Welcome to RAJGAR Premium! 👑' }; }
+      if (r.ok){ grant(r.sku || sku); return { ok:true, msg:'Welcome to RAJGAR Premium!' }; }
       return { ok:false, msg:r.msg || 'Purchase not completed' };
     }
     const s = await billingService();
@@ -282,11 +282,11 @@ const RG = (() => {
       if (!v.ok){ await res.complete('fail'); return { ok:false, msg:'Google Play could not confirm the payment' }; }
       await res.complete('success');
       grant(sku, v.until);
-      return { ok:true, msg:'Welcome to RAJGAR Premium! 👑' };
+      return { ok:true, msg:'Welcome to RAJGAR Premium!' };
     } catch(e){
       try { await res.complete('success'); } catch(_){}
       grant(sku);                                          // paid; server unreachable – unlock now, launch re-check will acknowledge
-      return { ok:true, msg:'Premium unlocked 👑 (confirmation will finish when online)' };
+      return { ok:true, msg:'Premium unlocked (confirmation will finish when online)' };
     }
   }
   /* On every launch: re-check purchases with Play + server (restores on a new phone, acknowledges pending ones, ends lapsed yearly plans). */
@@ -298,7 +298,7 @@ const RG = (() => {
       if (owned.includes(PREMIUM.lifetime.sku)) grant(PREMIUM.lifetime.sku);
       else if (owned.includes(PREMIUM.yearly.sku)) grant(PREMIUM.yearly.sku);
       else if (P.premium.kind === 'yearly'){ P.premium = { kind:'', until:0 }; save(); validateEquipped(); }
-      return { ok:true, msg: paidPremium() ? 'Premium restored 👑' : 'No purchases found' };
+      return { ok:true, msg: paidPremium() ? 'Premium restored' : 'No purchases found' };
     }
     const s = await billingService(); if (!s) return { ok:false, msg:'Open the Google Play version of the app to restore' };
     try {
@@ -312,7 +312,7 @@ const RG = (() => {
         } else { grant(p.itemId); found = true; }
       }
       if (!found && P.premium.kind === 'yearly'){ P.premium = { kind:'', until:0 }; save(); validateEquipped(); }
-      return { ok:true, msg: paidPremium() ? 'Premium restored 👑' : 'No purchases found' };
+      return { ok:true, msg: paidPremium() ? 'Premium restored' : 'No purchases found' };
     } catch(e){ return { ok:false, msg:'Could not reach Google Play' }; }
   }
   if (nativeBilling()) setTimeout(() => restorePurchases(), 1500);
@@ -382,9 +382,10 @@ const RG = (() => {
     if (!el) return;
     el.innerHTML = `
       <div class="label">Volume</div>
-      <div class="vol-row"><span>🔈</span><input type="range" class="vol" min="0" max="100" aria-label="Volume"><span class="vol-v"></span></div>
+      <div class="vol-row"><span class="ic" data-icon="vol"></span><input type="range" class="vol" min="0" max="100" aria-label="Volume"><span class="vol-v"></span></div>
       <div class="label">Sound style</div>
       <div class="seg snd-style" style="--n:3">${Object.entries(STYLES).map(([k,v]) => `<button data-s="${k}">${v}</button>`).join('')}</div>`;
+    paintIcons(el);
     const vol = el.querySelector('.vol'), vv = el.querySelector('.vol-v');
     const paint = () => {
       vol.value = Math.round((P.sound ? P.volume : 0) * 100); vv.textContent = vol.value + '%';

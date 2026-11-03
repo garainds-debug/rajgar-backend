@@ -203,3 +203,4 @@ input.field:focus{border-color:var(--accent)}
 .res-top .cup .ic{width:48px;height:48px;stroke-width:1.9}
 .res-top h2{margin:0;font:800 32px/1 'Baloo 2',sans-serif;justify-content:center}
 .sheet h1{font-family:'Baloo 2',system-ui,sans-serif}
+.vol-row .ic{width:22px;height:22px;display:grid;place-items:center;color:var(--text-2);flex:none}.vol-row .ic svg{width:20px;height:20px}

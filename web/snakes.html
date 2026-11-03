@@ -52,14 +52,14 @@
       <div class="label">Finish rule</div>
       <div class="seg" id="seg-exact" style="--n:2"><button data-x="1">Exact 100 (bounce)</button><button data-x="0">Any roll</button></div>
       <button id="btn-start" class="btn primary">Start game</button>
-      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="snd-box"><summary>Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
       <details class="rules">
         <summary>How to play</summary>
         <ul>
           <li>Roll and move. Land at the foot of a ladder to climb; land on a snake's head to slide down.</li>
           <li>A <b>6</b> gives another roll. Three 6s in a row and your turn lapses.</li>
           <li><b>Exact 100:</b> if you overshoot, you bounce back by the extra steps.</li>
-          <li>Win vs Computer to earn coins 🪙.</li>
+          <li>Win vs Computer to earn coins.</li>
         </ul>
       </details>
     </div>
@@ -239,7 +239,7 @@ async function roll(forced){
     game.sixes++;
     if (game.sixes === 3){
       game.sixes = 0;
-      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed ❌`); sfx.error();
+      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed`); sfx.error();
       await sleep(T(1100)); if (gen !== GEN) return;
       game.turn = (game.turn + 1) % game.players.length;
       return startTurn();
@@ -263,7 +263,7 @@ async function roll(forced){
     await sleep(T(150)); if (gen !== GEN) return;
     up ? sfx.ladder() : sfx.snake();
     if (!up) RG.vibrate(100);
-    RG.toast(up ? `${p.name} climbs a ladder to ${to}! 🪜` : `${p.name} bitten! Down to ${to} 🐍`);
+    RG.toast(up ? `${p.name} climbs a ladder to ${to}!` : `${p.name} bitten! Down to ${to}`);
     el.classList.add('slide'); game.pos[p.color] = to; render();
     await sleep(T(750)); if (gen !== GEN) return;
     el.classList.remove('slide');
@@ -286,7 +286,7 @@ function gameOver(winner){
     const won = winner.type === 'human';
     RG.recordGame('snakes', won);
     const amt = RG.winCoins(won ? 30 : 3);
-    reward = `+${amt} 🪙 coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
+    reward = `+${amt} coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
     setTimeout(() => sfx.coin(), 600);
   }
   $('reward').textContent = reward;

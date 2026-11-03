@@ -43,7 +43,7 @@
       <button id="btn-resume" class="btn primary" hidden>Resume saved game</button>
       <div class="label">Mode</div>
       <div class="seg" id="seg-mode" style="--n:2">
-        <button data-m="classic">Classic</button><button data-m="quick">Quick ⚡</button>
+        <button data-m="classic">Classic</button><button data-m="quick">Quick</button>
       </div>
       <div class="sub" id="mode-note" style="margin:6px 0 0"></div>
       <div class="label">Number of players</div>
@@ -53,7 +53,7 @@
       <div class="label">Who plays each colour</div>
       <div id="seats"></div>
       <button id="btn-start" class="btn primary">Start game</button>
-      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="snd-box"><summary>Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
       <details class="rules">
         <summary>How to play</summary>
         <ul>
@@ -62,7 +62,7 @@
           <li>Stars and coloured start squares are <b>safe</b>.</li>
           <li>Reach the centre with an exact roll; a token reaching home gives an extra roll.</li>
           <li><b>Classic:</b> all four tokens home to win. <b>Quick:</b> tokens start on the board and the first token home wins.</li>
-          <li>Win vs Computer to earn coins 🪙.</li>
+          <li>Win vs Computer to earn coins.</li>
         </ul>
       </details>
     </div>
@@ -288,7 +288,7 @@ async function roll(forced){
   if (d === 6){
     game.sixCount++;
     if (game.sixCount === 3){
-      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed ❌`); sfx.error();
+      setStatus('Three 6s in a row — turn lapsed'); RG.toast(`${p.name}: three 6s in a row — turn lapsed`); sfx.error();
       await sleep(T(1100)); if (gen !== GEN) return;
       return nextPlayer();
     }
@@ -352,7 +352,7 @@ async function moveToken(color, i){
     if (victims.length){
       victims.forEach(([c, j]) => { game.tokens[c][j] = -1; });
       render(); sfx.capture(); RG.vibrate(120); bonus = true;
-      RG.toast(`${p.name} captured ${[...new Set(victims.map(v => nameOf(v[0])))].join(' & ')}! 💥`);
+      RG.toast(`${p.name} captured ${[...new Set(victims.map(v => nameOf(v[0])))].join(' & ')}!`);
       await sleep(T(500)); if (gen !== GEN) return;
     }
   }
@@ -366,11 +366,11 @@ async function moveToken(color, i){
         left.sort((a, b) => progress(b.color) - progress(a.color)).forEach(q => game.ranks.push(q.color));
         return gameOver();
       }
-      RG.toast(`${p.name} finished ${['1st','2nd','3rd'][game.ranks.length-1] || ''}! 🏁`, 2200);
+      RG.toast(`${p.name} finished ${['1st','2nd','3rd'][game.ranks.length-1] || ''}!`, 2200);
       await sleep(T(600)); if (gen !== GEN) return;
       return nextPlayer();
     }
-    RG.toast(`${p.name}: token home! 🏠`);
+    RG.toast(`${p.name}: token home!`);
   }
   if (d === 6) bonus = true;
   if (bonus) return startTurn();
@@ -400,7 +400,7 @@ function gameOver(){
     const won = winner.type === 'human';
     RG.recordGame('ludo', won);
     const amt = RG.winCoins(won ? (game.mode === 'quick' ? 25 : 50) : 5);
-    reward = `+${amt} 🪙 coins${RG.isPremium() && amt ? ' (2× Premium)' : ''}`;
+    reward = `+${amt} coins${RG.isPremium() && amt ? ' (2× Premium)' : ''}`;
     if (amt) setTimeout(() => sfx.coin(), 600);
   }
   $('reward').textContent = reward;

@@ -48,7 +48,7 @@
       <div class="label">Computer level</div>
       <div class="seg" id="seg-lvl"><button data-l="1">Easy</button><button data-l="2">Medium</button><button data-l="3">Hard</button></div>
       <button id="btn-start" class="btn primary">Start game</button>
-      <details class="snd-box"><summary>🔊 Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
+      <details class="snd-box"><summary>Sound: volume &amp; style</summary><div id="sound-ctl"></div></details>
       <details class="rules">
         <summary>How to play</summary>
         <ul>
@@ -262,10 +262,10 @@ function resolveShot(){
     RG.toast(`Foul! ${name} pocketed the striker`); sfx.error();
   } else {
     if (queenIn){
-      if (own > 0){ G.queen.owner = me; G.queen.pendingBy = null; RG.toast(`${name} pocketed & covered the Queen! 👑`); sfx.home(); }
+      if (own > 0){ G.queen.owner = me; G.queen.pendingBy = null; RG.toast(`${name} pocketed & covered the Queen!`); sfx.home(); }
       else { G.queen.pendingBy = me; RG.toast('Queen pocketed — cover it with your next coin!'); }
     } else if (G.queen.pendingBy === me){
-      if (own > 0){ G.queen.owner = me; RG.toast(`Queen covered by ${name}! 👑`); sfx.home(); }
+      if (own > 0){ G.queen.owner = me; RG.toast(`Queen covered by ${name}!`); sfx.home(); }
       else { returnPiece('q'); RG.toast('Queen not covered — back to the centre'); }
       G.queen.pendingBy = null;
     } else if (own > 0) RG.toast(own > 1 ? `${own} coins in! Shoot again` : 'Nice! Shoot again');
@@ -292,7 +292,7 @@ function gameOver(wi){
     const won = w.type === 'human';
     RG.recordGame('carrom', won);
     const amt = RG.winCoins(won ? 40 + 10*G.lvl : 5);
-    reward = `+${amt} 🪙 coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
+    reward = `+${amt} coins${RG.isPremium() ? ' (2× Premium)' : ''}`;
     setTimeout(() => sfx.coin(), 600);
   }
   $('reward').textContent = reward;
@@ -538,7 +538,7 @@ function updateHUD(){
     el.classList.remove('off'); el.style.setProperty('--c', c);
     el.innerHTML = `<span class="av">${RG.playerAvatar(p)}</span><span>${p.name} <small>${p.color === 'w' ? 'White' : 'Black'}</small></span>`;
     el.classList.toggle('active', !G.over && G.turn === i);
-    $('cnt-' + i).textContent = `${p.color === 'w' ? '⚪' : '⚫'} ${G.pocketed[p.color]}/9${G.queen.owner === i ? ' 👑' : G.queen.pendingBy === i ? ' (👑?)' : ''}`;
+    $('cnt-' + i).textContent = `${p.color === 'w' ? '⚪' : '⚫'} ${G.pocketed[p.color]}/9${G.queen.owner === i ? ' + Queen' : G.queen.pendingBy === i ? ' (Queen?)' : ''}`;
   });
   const p = cur();
   $('turn-dot').style.background = p.color === 'w' ? '#f3ead7' : '#222';
