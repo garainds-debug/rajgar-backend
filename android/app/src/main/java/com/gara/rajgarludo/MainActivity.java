@@ -160,6 +160,17 @@ public class MainActivity extends ComponentActivity {
         setupBilling();
     }
 
+    /** Esc on a keyboard / PC / Chromebook behaves exactly like the Back button. */
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent e) {
+        if (e.getKeyCode() == android.view.KeyEvent.KEYCODE_ESCAPE) {
+            if (e.getAction() == android.view.KeyEvent.ACTION_UP && e.getRepeatCount() == 0)
+                getOnBackPressedDispatcher().onBackPressed();
+            return true;
+        }
+        return super.dispatchKeyEvent(e);
+    }
+
     @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
     @Override protected void onPause() { super.onPause(); web.onPause(); }
     @Override protected void onResume() { super.onResume(); web.onResume(); }

@@ -490,9 +490,8 @@ drawBoard(); renderSetup();
 
 RG.onBack(open => {
   const running = (typeof game !== 'undefined' && game && !game.over) || (typeof G !== 'undefined' && G && !G.over);
-  if (open.length){ if (!running) return false; closeModals(); return true; }
-  if (running){ $('btn-menu').click(); return true; }
-  return false;
+  if (running){ if (open.length) closeModals(); else $('btn-menu').click(); return true; }
+  return false;   // setup screen or finished game: back goes to the games list
 });
 if (new URLSearchParams(location.search).get('demo')){ cfg = { n:4, mode:'classic', types:{red:'ai',green:'ai',yellow:'ai',blue:'ai'} }; renderSetup(); setTimeout(() => $('btn-start').click(), 400); }
 window.__ludo = { get game(){ return game; } };

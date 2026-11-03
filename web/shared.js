@@ -495,12 +495,20 @@ const RG = (() => {
   /* Android back button: close the top sheet first; pages can add their own handler (RG.onBack). */
   let pageBack = null;
   const onBack = fn => { pageBack = fn; };
+  // Returns true when the page handled it (closed a sheet / opened the menu); false = leave this screen.
   window.RGBack = () => {
     const open = [...document.querySelectorAll('.modal:not([hidden])')];
-    if (pageBack){ try { if (pageBack(open)) return true; } catch(e){} }
+    if (pageBack){ try { return !!pageBack(open); } catch(e){ return false; } }
     if (open.length){ open[open.length - 1].hidden = true; return true; }
     return false;
   };
+  // Esc key = back (keyboards, PCs, Chromebooks). In the Android app the native side maps Esc to Back itself.
+  addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.repeat || IS_APP) return;
+    e.preventDefault();
+    if (window.RGBack()) return;
+    if (!/\/(index\.html)?$/.test(location.pathname)) location.href = './';
+  });
   if (IS_APP) document.querySelectorAll('[data-install]').forEach(b => b.remove());
   if (!IS_APP && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     let had = !!navigator.serviceWorker.controller;
